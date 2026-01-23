@@ -83,6 +83,16 @@ export interface Post {
   book?: Book;
   reading_session?: ReadingSession;
   liked_by_user?: boolean;
+  club_id?: string | null;
+}
+
+export interface ClubMessage {
+  id: string;
+  club_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  profile?: Profile;
 }
 
 export interface Follow {
@@ -135,6 +145,11 @@ export interface ClubMember {
   user_id: string;
   role: 'owner' | 'admin' | 'member';
   joined_at: string;
+  nickname?: string;
+}
+
+export interface ClubMemberWithProfile extends ClubMember {
+  profile: Profile;
 }
 
 export interface Badge {
@@ -153,6 +168,17 @@ export interface UserBadge {
   badge_id: string;
   earned_at: string;
   badge?: Badge;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  actor_id: string;
+  type: 'like' | 'comment' | 'follow' | 'mention';
+  entity_id: string;
+  read: boolean;
+  created_at: string;
+  actor?: Profile;
 }
 
 export interface GoogleBookResult {

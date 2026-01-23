@@ -13,6 +13,7 @@ import { Comment } from '@/types';
 
 interface CommentSectionProps {
   postId: string;
+  postAuthorId?: string;
 }
 
 interface CommentItemProps {
@@ -153,8 +154,8 @@ function CommentItem({ comment, allComments, onReply, onLike, onUnlike, currentU
   );
 }
 
-export function CommentSection({ postId }: CommentSectionProps) {
-  const { comments, loading, addComment, likeComment, unlikeComment } = useComments(postId);
+export function CommentSection({ postId, postAuthorId }: CommentSectionProps) {
+  const { comments, loading, addComment, likeComment, unlikeComment } = useComments(postId, postAuthorId);
   const { user, profile } = useAuth();
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);

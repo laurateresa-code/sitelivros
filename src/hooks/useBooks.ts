@@ -99,14 +99,30 @@ export function useBooks() {
       .from('books')
       .select('*')
       .eq('id', bookId)
-      .maybeSingle();
+      .single();
 
     if (error) {
       console.error('Error fetching book:', error);
       return null;
     }
-
     return data as Book;
+  }, []);
+
+  const getPopularBooks = useCallback(async (): Promise<Book[]> => {
+    // Fetch books with most ratings or just recent ones as a proxy for "popular" in the app context
+    // Ideally this would order by a popularity metric
+    const { data, error } = await supabase
+      .from('books')
+      .select('*')
+      .order('total_ratings', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error('Error fetching popular books:', error);
+      return [];
+    }
+    return data as Book[];
   }, []);
 
   return {
@@ -115,5 +131,6 @@ export function useBooks() {
     addBookFromGoogle,
     addManualBook,
     getBook,
+    getPopularBooks,
   };
 }

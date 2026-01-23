@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
+import { NotificationsPopover } from '@/components/notifications/NotificationsPopover';
 
 export function Navbar() {
   const location = useLocation();
@@ -58,6 +59,7 @@ export function Navbar() {
           {/* User Menu */}
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            {user && <NotificationsPopover />}
             {user ? (
               <DropdownMenu>
               <DropdownMenuTrigger asChild>

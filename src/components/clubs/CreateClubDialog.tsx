@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { ImageUpload } from '@/components/ui/image-upload';
 import { Plus, Loader2 } from 'lucide-react';
 
 interface CreateClubDialogProps {
@@ -26,6 +27,7 @@ export function CreateClubDialog({ onClubCreated, trigger }: CreateClubDialogPro
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [coverUrl, setCoverUrl] = useState('');
   const [isPublic, setIsPublic] = useState(true);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
@@ -43,9 +45,10 @@ export function CreateClubDialog({ onClubCreated, trigger }: CreateClubDialogPro
         .insert({
           name: name.trim(),
           description: description.trim() || null,
+          cover_url: coverUrl.trim() || null,
           is_public: isPublic,
           owner_id: user.id,
-          member_count: 1,
+          member_count: 0,
         })
         .select()
         .single();
@@ -100,7 +103,7 @@ export function CreateClubDialog({ onClubCreated, trigger }: CreateClubDialogPro
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Criar Novo Clube</DialogTitle>
           <DialogDescription>
@@ -118,6 +121,12 @@ export function CreateClubDialog({ onClubCreated, trigger }: CreateClubDialogPro
               required
             />
           </div>
+
+          <ImageUpload
+            value={coverUrl}
+            onChange={setCoverUrl}
+            label="Imagem de Capa"
+          />
           
           <div className="space-y-2">
             <Label htmlFor="description">Descrição</Label>

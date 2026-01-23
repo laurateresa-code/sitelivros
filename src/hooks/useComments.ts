@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { Comment } from '@/types';
 
-export function useComments(postId: string) {
+export function useComments(postId: string, postAuthorId?: string) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -77,16 +77,45 @@ export function useComments(postId: string) {
     if (!user) return { error: 'User not authenticated' };
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('comments')
         .insert({
           post_id: postId,
           user_id: user.id,
           content,
           parent_id: parentId || null
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Notifications
+      if (parentId) {
+        // Reply notification
+        const parentComment = comments.find(c => c.id === parentId);
+        if (parentComment && parentComment.user_id !== user.id) {
+            supabase.from('notifications').insert({
+                user_id: parentComment.user_id,
+                actor_id: user.id,
+                type: 'comment',
+                entity_id: postId, // Link to post
+            }).then(({ error }) => {
+                if (error) console.error('Error creating reply notification:', error);
+            });
+        }
+      } else if (postAuthorId && postAuthorId !== user.id) {
+        // Post comment notification
+        supabase.from('notifications').insert({
+            user_id: postAuthorId,
+            actor_id: user.id,
+            type: 'comment',
+            entity_id: postId,
+        }).then(({ error }) => {
+            if (error) console.error('Error creating comment notification:', error);
+        });
+      }
+
       return { error: null };
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -116,6 +145,19 @@ export function useComments(postId: string) {
           : c
       ));
       console.error('Error liking comment:', error);
+    } else {
+      // Notification for comment like
+      const comment = comments.find(c => c.id === commentId);
+      if (comment && comment.user_id !== user.id) {
+        supabase.from('notifications').insert({
+          user_id: comment.user_id,
+          actor_id: user.id,
+          type: 'like',
+          entity_id: postId, // Using postId as entity_id for easier navigation to context
+        }).then(({ error }) => {
+          if (error) console.error('Error creating comment like notification:', error);
+        });
+      }
     }
   };
 

@@ -1,6 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Search, Trophy, Users, ArrowRight, Flame, Book, Play } from 'lucide-react';
+import { BookOpen, Search, Trophy, Users, ArrowRight, Flame, Book, Play, Bell } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { useNotifications } from '@/hooks/useNotifications';
 import { Layout } from '@/components/layout/Layout';
 import { useAuth } from '@/hooks/useAuth';
 import { useFeed } from '@/hooks/useFeed';
@@ -149,13 +158,55 @@ const Dashboard = () => {
   const { posts, loading: loadingFeed, likePost, unlikePost, refresh } = useFeed();
   const { readingBooks, wantToReadBooks, loading: loadingBooks } = useUserBooks();
   const [isReadingSessionOpen, setIsReadingSessionOpen] = useState(false);
+  
+  const { unreadCount, loading: loadingNotifications } = useNotifications();
+  const [showNotificationPopup, setShowNotificationPopup] = useState(false);
+  const [hasCheckedNotifications, setHasCheckedNotifications] = useState(false);
+
+  useEffect(() => {
+    if (!loadingNotifications && !hasCheckedNotifications) {
+      if (unreadCount > 0) {
+        setShowNotificationPopup(true);
+      }
+      setHasCheckedNotifications(true);
+    }
+  }, [loadingNotifications, unreadCount, hasCheckedNotifications]);
 
   const currentBook = readingBooks[0]; // Assume first book is current for simplicity
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-12 gap-8 animate-fade-in">
-      {/* Left Sidebar - Profile & Current Reading */}
-      <div className="md:col-span-3 space-y-6">
+    <>
+      <Dialog open={showNotificationPopup} onOpenChange={setShowNotificationPopup}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5 text-primary" />
+              Novas Notificações
+            </DialogTitle>
+            <DialogDescription>
+              Você tem {unreadCount} novas notificações esperando por você!
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center py-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+              <Bell className="h-16 w-16 text-primary relative z-10 animate-bounce" />
+              <span className="absolute -top-1 -right-1 bg-destructive text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full border-2 border-background z-20">
+                {unreadCount}
+              </span>
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-center">
+            <Button onClick={() => setShowNotificationPopup(false)} className="w-full sm:w-auto">
+              Ver Notificações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 animate-fade-in relative z-10">
+        {/* Left Sidebar - Profile & Current Reading */}
+        <div className="md:col-span-3 space-y-6">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4 mb-4">
@@ -344,6 +395,7 @@ const Dashboard = () => {
         </Card>
       </div>
     </div>
+    </>
   );
 };
 

@@ -89,6 +89,26 @@ export function PostCard({ post, onLike, onUnlike }: PostCardProps) {
     }
   };
 
+  const renderContentWithMentions = (content: string) => {
+    if (!content || typeof content !== 'string') return content;
+
+    // Split by mentions (@username)
+    return content.split(/(@\w+)/g).map((part, i) => {
+      if (part.startsWith('@')) {
+        return (
+          <Link
+            key={i}
+            to={`/profile/${part.slice(1)}`}
+            className="font-medium text-primary hover:underline"
+          >
+            {part}
+          </Link>
+        );
+      }
+      return part;
+    });
+  };
+
   return (
     <Card className="animate-slide-up overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
       <CardHeader className="pb-3">
@@ -188,7 +208,9 @@ export function PostCard({ post, onLike, onUnlike }: PostCardProps) {
 
         {/* Post content */}
         {post.content && (
-          <p className="text-foreground leading-relaxed">{post.content}</p>
+          <p className="text-foreground leading-relaxed">
+            {renderContentWithMentions(post.content)}
+          </p>
         )}
 
         {/* Rating */}
@@ -230,7 +252,7 @@ export function PostCard({ post, onLike, onUnlike }: PostCardProps) {
           </Button>
         </div>
         
-        {showComments && <CommentSection postId={post.id} />}
+        {showComments && <CommentSection postId={post.id} postAuthorId={post.user_id} />}
       </CardFooter>
     </Card>
   );

@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Post } from '@/types';
 import { useAuth } from './useAuth';
 
-export function useFeed() {
+export function useFeed(clubId?: string) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -12,36 +12,48 @@ export function useFeed() {
     setLoading(true);
     
     try {
-      const { data: postsData, error } = await supabase
+      // Fetch posts first without joins to avoid relationship errors
+      let query = supabase
         .from('posts')
-        .select(`
-          *,
-          profile:profiles!posts_profiles_fk (
-            id,
-            user_id,
-            username,
-            display_name,
-            avatar_url,
-            is_reading_now,
-            reader_level
-          ),
-          book:books (
-            id,
-            title,
-            author,
-            cover_url
-          ),
-          reading_session:reading_sessions (
-            id,
-            pages_read,
-            duration_minutes,
-            notes
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(50);
 
+      if (clubId) {
+        query = query.eq('club_id', clubId);
+      }
+
+      const { data: postsData, error } = await query;
+
       if (error) throw error;
+
+      if (!postsData || postsData.length === 0) {
+        setPosts([]);
+        setLoading(false);
+        return;
+      }
+
+      // Collect IDs for manual fetching
+      const userIds = [...new Set(postsData.map(p => p.user_id))];
+      const bookIds = [...new Set(postsData.map(p => p.book_id).filter(Boolean))];
+      const sessionIds = [...new Set(postsData.map(p => p.reading_session_id).filter(Boolean))];
+      
+      // Fetch related data in parallel
+      const [profilesResult, booksResult, sessionsResult] = await Promise.all([
+        userIds.length > 0 
+          ? supabase.from('profiles').select('id, user_id, username, display_name, avatar_url, is_reading_now, reader_level').in('user_id', userIds)
+          : Promise.resolve({ data: [] }),
+        bookIds.length > 0
+          ? supabase.from('books').select('id, title, author, cover_url').in('id', bookIds)
+          : Promise.resolve({ data: [] }),
+        sessionIds.length > 0
+          ? supabase.from('reading_sessions').select('id, pages_read, duration_minutes, notes').in('id', sessionIds)
+          : Promise.resolve({ data: [] })
+      ]);
+
+      const profilesMap = new Map((profilesResult.data || []).map(p => [p.user_id, p]));
+      const booksMap = new Map((booksResult.data || []).map(b => [b.id, b]));
+      const sessionsMap = new Map((sessionsResult.data || []).map(s => [s.id, s]));
 
       // Check which posts are liked by the current user
       let likedPostIds: string[] = [];
@@ -54,15 +66,24 @@ export function useFeed() {
         likedPostIds = likes?.map(l => l.post_id) || [];
       }
 
-      const formattedPosts = (postsData || []).map(post => {
-        // Helper to handle single relation returned as array or object
-        const getSingle = (val: any) => Array.isArray(val) ? val[0] : val;
+      const formattedPosts = postsData.map(post => {
+        const profile = profilesMap.get(post.user_id);
+        const book = post.book_id ? booksMap.get(post.book_id) : null;
+        const reading_session = post.reading_session_id ? sessionsMap.get(post.reading_session_id) : null;
 
         return {
           ...post,
-          profile: getSingle(post.profile),
-          book: getSingle(post.book),
-          reading_session: getSingle(post.reading_session),
+          profile: profile || {
+            id: post.user_id,
+            user_id: post.user_id,
+            username: 'Unknown',
+            display_name: 'Unknown User',
+            avatar_url: null,
+            reader_level: 'iniciante',
+            is_reading_now: false
+          },
+          book,
+          reading_session,
           liked_by_user: likedPostIds.includes(post.id),
         };
       }) as Post[];
@@ -70,10 +91,12 @@ export function useFeed() {
       setPosts(formattedPosts);
     } catch (error) {
       console.error('Error fetching posts:', error);
+      // Fallback for empty feed on error
+      setPosts([]);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, clubId]);
 
   useEffect(() => {
     fetchPosts();
@@ -82,10 +105,15 @@ export function useFeed() {
   // Real-time updates
   useEffect(() => {
     const channel = supabase
-      .channel('posts-realtime')
+      .channel(clubId ? `club-posts-${clubId}` : 'posts-realtime')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'posts' },
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'posts',
+          filter: clubId ? `club_id=eq.${clubId}` : undefined 
+        },
         () => {
           fetchPosts();
         }
@@ -95,7 +123,7 @@ export function useFeed() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchPosts]);
+  }, [fetchPosts, clubId]);
 
   const likePost = async (postId: string) => {
     if (!user) return;
@@ -110,6 +138,19 @@ export function useFeed() {
           ? { ...post, likes_count: post.likes_count + 1, liked_by_user: true }
           : post
       ));
+
+      // Create notification
+      const post = posts.find(p => p.id === postId);
+      if (post && post.user_id !== user.id) {
+        supabase.from('notifications').insert({
+          user_id: post.user_id,
+          actor_id: user.id,
+          type: 'like',
+          entity_id: postId,
+        }).then(({ error }) => {
+            if (error) console.error('Error creating notification:', error);
+        });
+      }
     }
   };
 

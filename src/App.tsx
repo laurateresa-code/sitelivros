@@ -13,7 +13,9 @@ import BookDetails from "./pages/BookDetails";
 import Profile from "./pages/Profile";
 import Rankings from "./pages/Rankings";
 import Clubs from "./pages/Clubs";
+import ClubDetails from "./pages/ClubDetails";
 import NotFound from "./pages/NotFound";
+import { WelcomeNotificationDialog } from "@/components/notifications/WelcomeNotificationDialog";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +24,7 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <AuthProvider>
         <TooltipProvider>
+          <WelcomeNotificationDialog />
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -34,6 +37,7 @@ const App = () => (
               <Route path="/profile/:username" element={<Profile />} />
               <Route path="/rankings" element={<Rankings />} />
               <Route path="/clubs" element={<Clubs />} />
+              <Route path="/clubs/:id" element={<ClubDetails />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
