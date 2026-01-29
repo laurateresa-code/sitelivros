@@ -43,6 +43,7 @@ export default function Clubs() {
       if (error) throw error;
       
       // Map the data to use the real count from the relation
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const clubsWithRealCount = data.map((club: any) => ({
         ...club,
         member_count: club.club_members[0]?.count || 0

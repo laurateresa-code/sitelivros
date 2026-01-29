@@ -54,19 +54,50 @@ export function useUserBooks(userId?: string) {
   ) => {
     if (!user) return { error: new Error('Not authenticated') };
 
+    const existingEntry = books.find(b => b.book_id === book.id);
+    const now = new Date().toISOString();
+
+    let started_at: string | null = null;
+    let finished_at: string | null = null;
+    let current_page = existingEntry?.current_page || 0;
+
+    if (status === 'reading') {
+      started_at = existingEntry?.started_at || now;
+      finished_at = null;
+    } else if (status === 'read') {
+      started_at = existingEntry?.started_at || null;
+      finished_at = existingEntry?.status === 'read' && existingEntry.finished_at 
+        ? existingEntry.finished_at 
+        : now;
+      
+      if (book.page_count) {
+        current_page = book.page_count;
+      }
+    } else {
+      // want_to_read
+      started_at = null;
+      finished_at = null;
+      current_page = 0;
+    }
+
     const { error } = await supabase
       .from('user_books')
       .upsert({
+        id: existingEntry?.id,
         user_id: user.id,
         book_id: book.id,
         status,
-        started_at: status === 'reading' ? new Date().toISOString() : null,
-        finished_at: status === 'read' ? new Date().toISOString() : null,
+        started_at,
+        finished_at,
+        current_page,
+        updated_at: now
+      }, {
+        onConflict: 'user_id,book_id'
       });
 
     if (!error) {
       // Create post if starting or finishing a book
-      if (status === 'reading' || status === 'read') {
+      if ((status === 'reading' || status === 'read') && existingEntry?.status !== status) {
         await supabase
           .from('posts')
           .insert({
@@ -83,7 +114,7 @@ export function useUserBooks(userId?: string) {
     }
 
     return { error };
-  }, [user, fetchBooks]);
+  }, [user, fetchBooks, books]);
 
   const updateBook = useCallback(async (
     bookId: string,
@@ -118,14 +149,56 @@ export function useUserBooks(userId?: string) {
       .eq('book_id', bookId);
 
     if (!error) {
-      if (review) {
+      // Recalculate book average rating
+      const { data: ratingsData } = await supabase
+        .from('user_books')
+        .select('rating')
+        .eq('book_id', bookId)
+        .not('rating', 'is', null);
+
+      if (ratingsData) {
+        const totalRatings = ratingsData.length;
+        const sumRatings = ratingsData.reduce((acc, curr) => acc + (curr.rating || 0), 0);
+        const averageRating = totalRatings > 0 ? sumRatings / totalRatings : 0;
+
+        await supabase
+          .from('books')
+          .update({ 
+            average_rating: averageRating,
+            total_ratings: totalRatings
+          })
+          .eq('id', bookId);
+      }
+
+      // Handle Post creation/update for Community Reviews
+      const { data: existingPosts } = await supabase
+        .from('posts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('book_id', bookId)
+        .eq('type', 'review')
+        .limit(1);
+
+      const existingPost = existingPosts?.[0];
+
+      if (existingPost) {
+        const postUpdate: any = { rating };
+        if (review !== undefined) {
+          postUpdate.content = review;
+        }
+        
+        await supabase
+          .from('posts')
+          .update(postUpdate)
+          .eq('id', existingPost.id);
+      } else {
         await supabase
           .from('posts')
           .insert({
             user_id: user.id,
             book_id: bookId,
             type: 'review',
-            content: review,
+            content: review || '',
             rating,
           });
       }
@@ -146,22 +219,37 @@ export function useUserBooks(userId?: string) {
       .eq('book_id', bookId);
 
     if (!error) {
-      fetchBooks();
+      setBooks(prev => prev.filter(b => b.book_id !== bookId));
+      
+      // Also update profile if this was the current book
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('current_book_id')
+        .eq('id', user.id)
+        .single();
+        
+      if (profile?.current_book_id === bookId) {
+        await supabase
+          .from('profiles')
+          .update({ 
+            is_reading_now: false, 
+            current_book_id: null 
+          })
+          .eq('id', user.id);
+      }
     }
 
     return { error };
-  }, [user, fetchBooks]);
+  }, [user]);
 
   return {
     books,
-    loading,
-    refetch: fetchBooks,
-    addToList,
-    updateBook,
-    rateBook,
-    removeBook,
     readingBooks: books.filter(b => b.status === 'reading'),
     readBooks: books.filter(b => b.status === 'read'),
     wantToReadBooks: books.filter(b => b.status === 'want_to_read'),
+    loading,
+    addToList,
+    removeBook,
+    refresh: fetchBooks
   };
 }

@@ -15,7 +15,7 @@ export default function Auth() {
   const [username, setUsername] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -26,11 +26,19 @@ export default function Auth() {
     const { error } = await signIn(email, password);
     
     if (error) {
+      console.error('Login error details:', error);
+      
+      let errorMessage = error.message;
+      
+      if (error.message === 'Invalid login credentials') {
+        errorMessage = 'Email ou senha incorretos. Verifique se digitou corretamente.';
+      } else if (error.message.includes('Email not confirmed')) {
+        errorMessage = 'Seu email ainda não foi confirmado. Verifique sua caixa de entrada.';
+      }
+
       toast({
         title: 'Erro ao entrar',
-        description: error.message === 'Invalid login credentials' 
-          ? 'Email ou senha incorretos' 
-          : error.message,
+        description: errorMessage,
         variant: 'destructive',
       });
     } else {
@@ -58,8 +66,32 @@ export default function Auth() {
         variant: 'destructive',
       });
     } else {
-      toast({ title: 'Conta criada com sucesso!', description: 'Bem-vindo ao BookLive!' });
+      toast({ title: 'Conta criada com sucesso!', description: 'Bem-vindo ao Litera!' });
       navigate('/');
+    }
+    setLoading(false);
+  };
+
+  const handleResetPassword = async () => {
+    if (!email.trim()) {
+      toast({ title: 'Digite seu email para recuperar a senha', variant: 'destructive' });
+      return;
+    }
+    
+    setLoading(true);
+    const { error } = await resetPassword(email);
+    
+    if (error) {
+      toast({
+        title: 'Erro ao enviar email',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Email enviado!',
+        description: 'Verifique sua caixa de entrada para redefinir sua senha.',
+      });
     }
     setLoading(false);
   };
@@ -71,7 +103,7 @@ export default function Auth() {
           <div className="w-16 h-16 mx-auto rounded-2xl gradient-primary flex items-center justify-center">
             <BookOpen className="w-8 h-8 text-white" />
           </div>
-          <CardTitle className="text-2xl font-display gradient-text">BookLive</CardTitle>
+          <CardTitle className="text-2xl font-display gradient-text">Litera</CardTitle>
           <CardDescription>Sua rede social de leitura</CardDescription>
         </CardHeader>
         <CardContent>
@@ -103,6 +135,16 @@ export default function Auth() {
                 <Button type="submit" className="w-full gradient-primary text-white" disabled={loading}>
                   {loading ? 'Entrando...' : 'Entrar'}
                 </Button>
+                <div className="text-center">
+                  <button 
+                    type="button" 
+                    onClick={handleResetPassword}
+                    className="text-sm text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+                    disabled={loading}
+                  >
+                    Esqueci minha senha
+                  </button>
+                </div>
               </form>
             </TabsContent>
 

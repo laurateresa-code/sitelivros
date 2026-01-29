@@ -11,15 +11,14 @@ export function WelcomeCard() {
           <div className="flex items-center gap-3">
             <div className="relative">
               <Avatar className="h-12 w-12 border-2 border-primary/20">
-                <AvatarImage src="/book-pulse-logo.png" />
                 <AvatarFallback className="bg-primary text-primary-foreground">
-                  BP
+                  Li
                 </AvatarFallback>
               </Avatar>
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">Book Pulse</span>
+                <span className="font-semibold">Litera</span>
                 <Badge variant="default" className="text-xs">
                   Oficial
                 </Badge>
@@ -39,7 +38,7 @@ export function WelcomeCard() {
       <CardContent className="pb-4">
         <div className="space-y-4">
           <p className="text-sm leading-relaxed">
-            Bem-vindo ao Book Pulse! 📚✨
+            Bem-vindo ao Litera! 📚✨
             <br />
             Estamos muito felizes em ter você aqui. Explore novas leituras, compartilhe seu progresso e conecte-se com outros leitores apaixonados.
           </p>

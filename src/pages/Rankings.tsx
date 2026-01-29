@@ -57,12 +57,12 @@ export default function Rankings() {
   }, []);
 
   const RankingList = ({ profiles, type }: { profiles: Profile[], type: 'pages' | 'books' | 'streak' }) => (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-6">
       {profiles.map((profile, index) => (
-        <Link key={profile.id} to={`/profile/${profile.username}`}>
-          <div className="flex items-center gap-4 p-4 rounded-lg bg-card hover:bg-accent/50 transition-colors border border-border">
+        <Link key={profile.id} to={`/profile/${profile.username}`} className="block">
+          <div className="flex items-center gap-4 py-6 pl-6 pr-4 rounded-xl bg-card hover:bg-accent/50 transition-colors border border-border shadow-sm">
             <div className={`
-              w-8 h-8 flex items-center justify-center rounded-full font-bold
+              w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm shrink-0 -ml-2 sm:-ml-3
               ${index === 0 ? 'bg-accent/20 text-accent' : ''}
               ${index === 1 ? 'bg-muted/50 text-muted-foreground' : ''}
               ${index === 2 ? 'bg-secondary/20 text-secondary' : ''}
@@ -71,42 +71,39 @@ export default function Rankings() {
               {index + 1}
             </div>
             
-            <Avatar className="h-10 w-10 border border-border">
+            <Avatar className="h-14 w-14 border-2 border-border shrink-0">
               <AvatarImage src={profile.avatar_url || undefined} />
-              <AvatarFallback className="bg-primary/10 text-primary">
+              <AvatarFallback className="bg-primary/10 text-primary text-lg">
                 {profile.username.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold truncate">
+            <div className="flex-1 min-w-0 flex flex-col items-center sm:items-start text-center sm:text-left space-y-1">
+              <div className="w-full sm:w-auto">
+                <span className="font-bold text-base sm:text-lg leading-tight block">
                   {profile.display_name || profile.username}
                 </span>
-                <Badge variant="secondary" className="text-[10px] h-5 px-1.5 capitalize">
-                  {profile.reader_level.replace('_', ' ')}
-                </Badge>
               </div>
-              <p className="text-xs text-muted-foreground truncate">@{profile.username}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">@{profile.username}</p>
             </div>
 
-            <div className="text-right font-medium tabular-nums">
+            <div className="text-right font-bold tabular-nums text-base sm:text-lg shrink-0 ml-auto">
               {type === 'pages' && (
-                <div className="flex items-center gap-1 text-primary">
-                  <BookOpen className="w-4 h-4" />
-                  {profile.total_pages_read}
+                <div className="flex flex-col items-center justify-center text-primary">
+                  <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 mb-1" />
+                  <span className="text-sm sm:text-base leading-none">{profile.total_pages_read}</span>
                 </div>
               )}
               {type === 'books' && (
-                <div className="flex items-center gap-1 text-secondary">
-                  <Trophy className="w-4 h-4" />
-                  {profile.total_books_read}
+                <div className="flex flex-col items-center justify-center text-secondary">
+                  <Trophy className="w-6 h-6 sm:w-8 sm:h-8 mb-1" />
+                  <span className="text-sm sm:text-base leading-none">{profile.total_books_read}</span>
                 </div>
               )}
               {type === 'streak' && (
-                <div className="flex items-center gap-1 text-orange-500">
-                  <Flame className="w-4 h-4" />
-                  {profile.streak_days} dias
+                <div className="flex flex-col items-center justify-center text-orange-500">
+                  <Flame className="w-6 h-6 sm:w-8 sm:h-8 mb-1" />
+                  <span className="text-sm sm:text-base leading-none">{profile.streak_days} dias</span>
                 </div>
               )}
             </div>

@@ -6,10 +6,12 @@ import { useAuth } from './useAuth';
 export function useFeed(clubId?: string) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   const { user } = useAuth();
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
+    setError(null);
     
     try {
       // Fetch posts first without joins to avoid relationship errors
@@ -91,6 +93,7 @@ export function useFeed(clubId?: string) {
       setPosts(formattedPosts);
     } catch (error) {
       console.error('Error fetching posts:', error);
+      setError(error as Error);
       // Fallback for empty feed on error
       setPosts([]);
     } finally {
@@ -109,13 +112,64 @@ export function useFeed(clubId?: string) {
       .on(
         'postgres_changes',
         { 
-          event: '*', 
+          event: 'INSERT', 
           schema: 'public', 
           table: 'posts',
           filter: clubId ? `club_id=eq.${clubId}` : undefined 
         },
-        () => {
-          fetchPosts();
+        async (payload) => {
+          const newPost = payload.new as Post;
+          
+          // Fetch additional data for the new post
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, user_id, username, display_name, avatar_url, reader_level, is_reading_now')
+            .eq('user_id', newPost.user_id)
+            .single();
+
+          let book = null;
+          if (newPost.book_id) {
+             const { data } = await supabase.from('books').select('id, title, author, cover_url').eq('id', newPost.book_id).single();
+             book = data;
+          }
+
+          let reading_session = null;
+          if (newPost.reading_session_id) {
+             const { data } = await supabase.from('reading_sessions').select('id, pages_read, duration_minutes, notes').eq('id', newPost.reading_session_id).single();
+             reading_session = data;
+          }
+
+          const formattedPost: Post = {
+            ...newPost,
+            profile: (profile as any) || {
+                id: newPost.user_id,
+                user_id: newPost.user_id,
+                username: 'Unknown',
+                display_name: 'Unknown User',
+                avatar_url: null,
+                reader_level: 'iniciante',
+                is_reading_now: false,
+            },
+            book: book || undefined,
+            reading_session: reading_session || undefined,
+            liked_by_user: false,
+            likes_count: 0,
+            comments_count: 0
+          };
+
+          setPosts(prev => [formattedPost, ...prev]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { 
+          event: 'DELETE', 
+          schema: 'public', 
+          table: 'posts',
+          filter: clubId ? `club_id=eq.${clubId}` : undefined 
+        },
+        (payload) => {
+          setPosts(prev => prev.filter(p => p.id !== payload.old.id));
         }
       )
       .subscribe();
@@ -123,7 +177,7 @@ export function useFeed(clubId?: string) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchPosts, clubId]);
+  }, [clubId]);
 
   const likePost = async (postId: string) => {
     if (!user) return;
@@ -172,5 +226,23 @@ export function useFeed(clubId?: string) {
     }
   };
 
-  return { posts, loading, likePost, unlikePost, refresh: fetchPosts };
+  const deletePost = async (postId: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', postId)
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Error deleting post:', error);
+      throw error;
+    }
+
+    // State update is handled by realtime subscription, but we can do optimistic update as well
+    setPosts(prev => prev.filter(p => p.id !== postId));
+  };
+
+  return { posts, loading, error, likePost, unlikePost, deletePost, refresh: fetchPosts };
 }

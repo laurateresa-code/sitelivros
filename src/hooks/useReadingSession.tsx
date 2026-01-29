@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useState, useCallback, createContext, useContext, ReactNode } from 'react';
+import { supabase } from '../integrations/supabase/client';
 import { useAuth } from './useAuth';
 
 interface ActiveSession {
@@ -8,7 +8,17 @@ interface ActiveSession {
   startTime: Date;
 }
 
-export function useReadingSession() {
+interface ReadingSessionContextType {
+  activeSession: ActiveSession | null;
+  loading: boolean;
+  startSession: (bookId: string, currentPage: number) => Promise<void>;
+  endSession: (endPage: number, notes?: string) => Promise<void>;
+  cancelSession: () => Promise<void>;
+}
+
+const ReadingSessionContext = createContext<ReadingSessionContextType | undefined>(undefined);
+
+export function ReadingSessionProvider({ children }: { children: ReactNode }): JSX.Element {
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [loading, setLoading] = useState(false);
   const { user, profile, updateProfile } = useAuth();
@@ -65,6 +75,36 @@ export function useReadingSession() {
         .eq('user_id', user.id)
         .eq('book_id', activeSession.bookId);
 
+      // Calculate streak updates
+      let streakDays = profile?.streak_days || 0;
+      let lastBrokenStreak = profile?.last_broken_streak || 0;
+      let consecutiveRecoveries = profile?.consecutive_recoveries || 0;
+      
+      const today = new Date().toISOString().split('T')[0];
+      const lastReading = profile?.last_reading_date;
+      
+      // Only update streak logic if session is at least 10 minutes
+      if (durationMinutes >= 10) {
+        if (lastReading !== today) {
+           const yesterday = new Date();
+           yesterday.setDate(yesterday.getDate() - 1);
+           const yesterdayStr = yesterday.toISOString().split('T')[0];
+           
+           if (lastReading === yesterdayStr) {
+             // Consecutive day
+             streakDays += 1;
+             // Reset consecutive recoveries on normal extension
+             consecutiveRecoveries = 0;
+           } else {
+             // Streak broken
+             if (streakDays > 0) {
+               lastBrokenStreak = streakDays;
+             }
+             streakDays = 1;
+           }
+        }
+      }
+
       // Update profile stats
       const newTotalPages = (profile?.total_pages_read || 0) + pagesRead;
       const newTotalTime = (profile?.total_reading_time || 0) + durationMinutes;
@@ -74,7 +114,10 @@ export function useReadingSession() {
         current_book_id: null,
         total_pages_read: newTotalPages,
         total_reading_time: newTotalTime,
-        last_reading_date: new Date().toISOString().split('T')[0],
+        last_reading_date: durationMinutes >= 10 ? today : (lastReading || null),
+        streak_days: streakDays,
+        last_broken_streak: lastBrokenStreak,
+        consecutive_recoveries: consecutiveRecoveries
       });
 
       // Create a post about the session
@@ -109,11 +152,23 @@ export function useReadingSession() {
     setActiveSession(null);
   }, [user, updateProfile]);
 
-  return {
-    activeSession,
-    loading,
-    startSession,
-    endSession,
-    cancelSession,
-  };
+  return (
+    <ReadingSessionContext.Provider value={{
+      activeSession,
+      loading,
+      startSession,
+      endSession,
+      cancelSession
+    }}>
+      {children}
+    </ReadingSessionContext.Provider>
+  );
+}
+
+export function useReadingSession() {
+  const context = useContext(ReadingSessionContext);
+  if (context === undefined) {
+    throw new Error('useReadingSession must be used within a ReadingSessionProvider');
+  }
+  return context;
 }

@@ -8,14 +8,80 @@ export function useBooks() {
   const searchGoogleBooks = useCallback(async (query: string): Promise<GoogleBookResult[]> => {
     if (!query.trim()) return [];
     
+    const cacheKey = `google_books_cache_${query}`;
+    const cachedData = localStorage.getItem(cacheKey);
+    
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        // Valid for 24 hours
+        if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+          console.log('Using cached data for:', query);
+          return parsed.items;
+        }
+      } catch (e) {
+        console.error('Error parsing cache:', e);
+        localStorage.removeItem(cacheKey);
+      }
+    }
+
     try {
-      const response = await fetch(
-        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=10`
-      );
+      // Helper to fetch with retry for 429 errors
+      const fetchWithRetry = async (attempt = 0): Promise<Response> => {
+        try {
+          const res = await fetch(
+            `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=10`
+          );
+          // If rate limited, retry with exponential backoff
+          if (res.status === 429 && attempt < 2) {
+             console.warn(`Rate limit hit for ${query}, retrying... (Attempt ${attempt + 1})`);
+             await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1))); // 2s, 4s
+             return fetchWithRetry(attempt + 1);
+          }
+          return res;
+        } catch (err) {
+          // Network errors, retry as well
+          if (attempt < 2) {
+             await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+             return fetchWithRetry(attempt + 1);
+          }
+          throw err;
+        }
+      };
+
+      const response = await fetchWithRetry();
+      
+      if (!response.ok) {
+        if (response.status === 503 || response.status === 429) {
+          console.warn('Rate limit or Service Unavailable, returning cached data if available');
+          // If still failing, try to return stale cache if exists
+          if (cachedData) {
+            const parsed = JSON.parse(cachedData);
+            return parsed.items;
+          }
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
-      return data.items || [];
+      const items = data.items || [];
+      
+      if (items.length > 0) {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          timestamp: Date.now(),
+          items
+        }));
+      }
+      
+      return items;
     } catch (error) {
       console.error('Error searching Google Books:', error);
+      // Fallback to cache on error even if expired
+      if (cachedData) {
+         try {
+           return JSON.parse(cachedData).items;
+         } catch { return []; }
+      }
       return [];
     }
   }, []);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, MessageCircle, Share2, BookOpen, Clock, FileText, MessageSquare, Check } from 'lucide-react';
+import { Heart, MessageCircle, Share2, BookOpen, Clock, FileText, MessageSquare, Check, MoreHorizontal, Trash2, Loader2 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -14,6 +14,22 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { StarRating } from '@/components/ui/StarRating';
 import { Post } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,13 +39,39 @@ interface PostCardProps {
   post: Post;
   onLike: (postId: string) => void;
   onUnlike: (postId: string) => void;
+  onDelete?: (postId: string) => Promise<void> | void;
 }
 
-export function PostCard({ post, onLike, onUnlike }: PostCardProps) {
+export function PostCard({ post, onLike, onUnlike, onDelete }: PostCardProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [showComments, setShowComments] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const isOwner = user?.id === post.user_id;
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    try {
+      setIsDeleting(true);
+      await onDelete(post.id);
+      toast({
+        title: "Post removido",
+        description: "O post foi removido com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao remover",
+        description: "Não foi possível remover o post. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
 
   const handleLikeClick = () => {
     if (!user) return;
@@ -92,14 +134,15 @@ export function PostCard({ post, onLike, onUnlike }: PostCardProps) {
   const renderContentWithMentions = (content: string) => {
     if (!content || typeof content !== 'string') return content;
 
-    // Split by mentions (@username)
-    return content.split(/(@\w+)/g).map((part, i) => {
-      if (part.startsWith('@')) {
+    // Split by mentions (@username) - improved regex to include dots and underscores
+    return content.split(/(@[a-zA-Z0-9._-]+)/g).map((part, i) => {
+      if (part.startsWith('@') && part.length > 1) {
         return (
           <Link
             key={i}
             to={`/profile/${part.slice(1)}`}
-            className="font-medium text-primary hover:underline"
+            className="font-medium text-primary hover:underline cursor-pointer z-10 relative"
+            onClick={(e) => e.stopPropagation()}
           >
             {part}
           </Link>
@@ -129,11 +172,11 @@ export function PostCard({ post, onLike, onUnlike }: PostCardProps) {
               )}
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-semibold truncate max-w-[150px] sm:max-w-none">
                   {post.profile?.display_name || post.profile?.username}
                 </span>
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary" className="text-[10px] sm:text-xs capitalize shrink-0 px-1.5 py-0 h-5 sm:h-auto">
                   {post.profile?.reader_level?.replace('_', ' ')}
                 </Badge>
               </div>
@@ -143,23 +186,44 @@ export function PostCard({ post, onLike, onUnlike }: PostCardProps) {
               </div>
             </div>
           </Link>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-sm text-muted-foreground cursor-help">
-                  {formatDistanceToNow(new Date(post.created_at), {
-                    addSuffix: true,
+          <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-sm text-muted-foreground cursor-help">
+                    {formatDistanceToNow(new Date(post.created_at), {
+                      addSuffix: true,
+                      locale: ptBR,
+                    })}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {format(new Date(post.created_at), "dd 'de' MMMM 'às' HH:mm", {
                     locale: ptBR,
                   })}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                {format(new Date(post.created_at), "dd 'de' MMMM 'às' HH:mm", {
-                  locale: ptBR,
-                })}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {isOwner && onDelete && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    className="text-destructive focus:text-destructive cursor-pointer"
+                    onClick={() => setShowDeleteDialog(true)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Excluir post
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
       </CardHeader>
 
@@ -254,6 +318,37 @@ export function PostCard({ post, onLike, onUnlike }: PostCardProps) {
         
         {showComments && <CommentSection postId={post.id} postAuthorId={post.user_id} />}
       </CardFooter>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir post?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente o seu post.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                "Excluir"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

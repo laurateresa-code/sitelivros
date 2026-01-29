@@ -6,6 +6,7 @@ export interface Profile {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  banner_url: string | null;
   bio: string | null;
   reader_level: ReaderLevel;
   total_pages_read: number;
@@ -13,6 +14,9 @@ export interface Profile {
   total_reading_time: number;
   streak_days: number;
   last_reading_date: string | null;
+  last_broken_streak: number | null;
+  consecutive_recoveries: number;
+  last_recovery_date: string | null;
   is_reading_now: boolean;
   current_book_id: string | null;
   created_at: string;

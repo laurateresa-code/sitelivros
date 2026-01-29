@@ -11,12 +11,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { PenSquare } from 'lucide-react';
+import { PenSquare, Plus } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface CreatePostDialogProps {
   onPostCreated?: () => void;
   clubId?: string;
+  fab?: boolean;
 }
 
 interface ProfileSuggestion {
@@ -26,7 +27,7 @@ interface ProfileSuggestion {
   avatar_url: string | null;
 }
 
-export function CreatePostDialog({ onPostCreated, clubId }: CreatePostDialogProps) {
+export function CreatePostDialog({ onPostCreated, clubId, fab }: CreatePostDialogProps) {
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
@@ -45,15 +46,19 @@ export function CreatePostDialog({ onPostCreated, clubId }: CreatePostDialogProp
       }
 
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('profiles')
-          .select('id, username, display_name, avatar_url')
-          .or(`username.ilike.%${mentionQuery}%,display_name.ilike.%${mentionQuery}%`)
-          .limit(5);
+          .select('id, username, display_name, avatar_url');
+          
+        if (mentionQuery.trim()) {
+           query = query.or(`username.ilike.%${mentionQuery}%,display_name.ilike.%${mentionQuery}%`);
+        }
+          
+        const { data, error } = await query.limit(5);
 
         if (error) throw error;
         setSuggestions(data || []);
-        setShowSuggestions(data && data.length > 0);
+        setShowSuggestions(true);
       } catch (error) {
         console.error('Error searching profiles:', error);
       }
@@ -72,7 +77,7 @@ export function CreatePostDialog({ onPostCreated, clubId }: CreatePostDialogProp
     const words = textBeforeCursor.split(/\s/);
     const lastWord = words[words.length - 1];
 
-    if (lastWord.startsWith('@') && lastWord.length > 1) {
+    if (lastWord.startsWith('@')) {
       setMentionQuery(lastWord.slice(1));
     } else {
       setMentionQuery(null);
@@ -111,7 +116,7 @@ export function CreatePostDialog({ onPostCreated, clubId }: CreatePostDialogProp
 
     setLoading(true);
     try {
-      const postData: any = {
+      const postData: { user_id: string; content: string; type: string; club_id?: string } = {
         user_id: user.id,
         content: content.trim(),
         type: 'general',
@@ -128,6 +133,13 @@ export function CreatePostDialog({ onPostCreated, clubId }: CreatePostDialogProp
       let createdPost = createdPostData;
 
       if (error) {
+        console.error('Initial post creation error:', error);
+        
+        // Check for missing column error (schema mismatch)
+        if (error.message?.includes('club_id') || error.code === 'PGRST204' || error.message?.includes('schema cache')) {
+            throw new Error('O banco de dados precisa ser atualizado (coluna club_id ausente). Por favor, execute a migração SQL.');
+        }
+
         // If check constraint fails, try fallback to 'milestone' (for older schema versions)
         if (error.message?.includes('check constraint') || error.code === '23514') {
           console.warn('Fallback to milestone type due to constraint violation');
@@ -140,8 +152,9 @@ export function CreatePostDialog({ onPostCreated, clubId }: CreatePostDialogProp
         }
       }
 
-      // Handle mentions notifications
-      const mentionedUsernames = content.match(/@(\w+)/g)?.map(m => m.slice(1)) || [];
+      // Extract mentions for notifications
+      const mentionedUsernames = content.match(/@([a-zA-Z0-9._-]+)/g)?.map(m => m.slice(1)) || [];
+      
       if (createdPost && mentionedUsernames.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
@@ -189,10 +202,19 @@ export function CreatePostDialog({ onPostCreated, clubId }: CreatePostDialogProp
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="w-full gap-2" variant="outline" size="lg">
-          <PenSquare className="w-4 h-4" />
-          No que você está pensando?
-        </Button>
+        {fab ? (
+          <Button
+            className="fixed bottom-20 right-4 md:bottom-6 md:right-6 h-14 w-14 rounded-full shadow-lg z-50 hover:scale-105 transition-transform"
+            size="icon"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        ) : (
+          <Button className="w-full gap-2" variant="outline" size="lg">
+            <PenSquare className="w-4 h-4" />
+            No que você está pensando?
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

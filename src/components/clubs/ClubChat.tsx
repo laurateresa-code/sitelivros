@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { ClubMessage, Profile, ClubMemberWithProfile } from '@/types';
@@ -32,7 +32,7 @@ export function ClubChat({ clubId, members }: ClubChatProps) {
     scrollToBottom();
   }, [messages]);
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     try {
       // 1. Fetch messages
       const { data: messagesData, error } = await supabase
@@ -72,7 +72,7 @@ export function ClubChat({ clubId, members }: ClubChatProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [clubId, toast]);
 
   useEffect(() => {
     fetchMessages();
@@ -110,7 +110,7 @@ export function ClubChat({ clubId, members }: ClubChatProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [clubId]);
+  }, [clubId, fetchMessages]);
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();

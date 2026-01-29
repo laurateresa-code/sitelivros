@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { useBooks } from '@/hooks/useBooks';
@@ -8,9 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { StarRating } from '@/components/ui/StarRating';
+import { supabase } from '@/integrations/supabase/client';
 import { BookOpen, Calendar, FileText, Share2, Clock, Check, Loader2, Play } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ReadingSessionModal } from '@/components/reading/ReadingSessionModal';
+import { BookReviews } from '@/components/books/BookReviews';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function BookDetails() {
@@ -25,24 +27,65 @@ export default function BookDetails() {
   const { toast } = useToast();
   const [isReadingSessionOpen, setIsReadingSessionOpen] = useState(false);
 
-  useEffect(() => {
-    const loadBook = async () => {
-      if (!id) return;
-      setLoading(true);
+  const loadBook = useCallback(async () => {
+    if (!id) return;
+    // Don't set loading to true here to avoid flashing content on updates
+    // setLoading(true); 
+    
+    // Fetch book details
+    const bookData = await getBook(id);
+    
+    // Fetch real-time stats directly from user_books to handle RLS update delays/restrictions
+    const { data: statsData } = await supabase
+      .from('user_books')
+      .select('rating')
+      .eq('book_id', id)
+      .not('rating', 'is', null);
       
-      // Fetch book details
-      const bookData = await getBook(id);
-      setBook(bookData);
+    if (statsData && bookData) {
+      const total = statsData.length;
+      const sum = statsData.reduce((acc, curr) => acc + (curr.rating || 0), 0);
+      const avg = total > 0 ? sum / total : 0;
+      
+      bookData.average_rating = avg;
+      bookData.total_ratings = total;
+    }
 
-      // Check if user has this book
-      const foundUserBook = books.find(b => b.book_id === id);
-      setUserBook(foundUserBook);
+    setBook(bookData);
 
-      setLoading(false);
-    };
+    // Check if user has this book
+    const foundUserBook = books.find(b => b.book_id === id);
+    setUserBook(foundUserBook);
 
-    loadBook();
+    setLoading(false);
   }, [id, books, getBook]);
+
+  useEffect(() => {
+    setLoading(true); // Initial loading
+    loadBook();
+
+    // Subscribe to real-time updates for this book
+    const channel = supabase
+      .channel(`book-detail-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'books',
+          filter: `id=eq.${id}`,
+        },
+        (payload) => {
+          console.log('Book updated:', payload);
+          setBook(payload.new as Book);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadBook, id]);
 
   const handleStatusChange = async (status: 'reading' | 'read' | 'want_to_read') => {
     if (!book || !user) return;
@@ -53,6 +96,7 @@ export default function BookDetails() {
       toast({ title: 'Erro ao atualizar status', variant: 'destructive' });
     } else {
       toast({ title: 'Status atualizado com sucesso!' });
+      loadBook(); // Refresh book data
     }
   };
 
@@ -65,6 +109,7 @@ export default function BookDetails() {
       toast({ title: 'Erro ao avaliar', variant: 'destructive' });
     } else {
       toast({ title: 'Avaliação salva!' });
+      loadBook(); // Refresh book data to show new average
     }
   };
 
@@ -205,6 +250,9 @@ export default function BookDetails() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Community Reviews */}
+            <BookReviews bookId={book.id} />
           </div>
         </div>
       </div>

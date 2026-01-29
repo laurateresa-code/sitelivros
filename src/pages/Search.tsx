@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Search as SearchIcon, Loader2, BookOpen, TrendingUp, Sparkles, Heart, Brain, Rocket } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search as SearchIcon, Loader2, BookOpen, TrendingUp, Sparkles, Heart, Brain, Rocket, Filter, Zap, Eye, Flag, type LucideIcon } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { useBooks } from '@/hooks/useBooks';
 import { useUserBooks } from '@/hooks/useUserBooks';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,10 +13,33 @@ import { BookCard } from '@/components/books/BookCard';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
+const BrazilFlagIcon = ({ className, ...props }: React.ComponentProps<"svg">) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    <rect x="2" y="5" width="20" height="14" rx="2" />
+    <path d="M12 7L19 12L12 17L5 12Z" />
+    <circle cx="12" cy="12" r="2" />
+  </svg>
+);
+
 export default function Search() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<GoogleBookResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [authorFilter, setAuthorFilter] = useState('');
+  const [subjectFilter, setSubjectFilter] = useState('all');
   
   // Recommendations state
   const [popularBooks, setPopularBooks] = useState<Book[]>([]);
@@ -30,32 +55,189 @@ export default function Search() {
   const { addToList } = useUserBooks();
   const { user } = useAuth();
   const { toast } = useToast();
+  const loadingRef = useRef(false);
 
   useEffect(() => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+
     const loadRecommendations = async () => {
       // Load internal popular books
       const popular = await getPopularBooks();
       setPopularBooks(popular);
 
-      // Load categories from Google Books
-      // We run these in parallel
-      const [romance, classicRomance, modernRomance, fantasy, scifi, mystery, selfHelp] = await Promise.all([
-        searchGoogleBooks('subject:romance'),
-        searchGoogleBooks('subject:romance+classic'),
-        searchGoogleBooks('subject:romance+contemporary'),
-        searchGoogleBooks('subject:fantasy'),
-        searchGoogleBooks('subject:science fiction'),
-        searchGoogleBooks('subject:mystery'),
-        searchGoogleBooks('subject:self-help')
-      ]);
+      // BookTok specific queries
+      const bookTokQueries = [
+        'intitle:É Assim que Acaba+inauthor:Colleen Hoover',
+        'intitle:Ugly Love+inauthor:Colleen Hoover',
+        'intitle:Verity+inauthor:Colleen Hoover',
+        'intitle:Os Dois Morrem no Final+inauthor:Adam Silvera',
+        'intitle:A Canção de Aquiles+inauthor:Madeline Miller',
+        'intitle:Corte de Espinhos e Rosas+inauthor:Sarah J. Maas',
+        'intitle:Six of Crows+inauthor:Leigh Bardugo',
+        'intitle:Vermelho, Branco e Sangue Azul+inauthor:Casey McQuiston',
+        'intitle:A Vida Invisível de Addie LaRue+inauthor:V. E. Schwab',
+        'intitle:O Príncipe Cruel+inauthor:Holly Black',
+        'intitle:O Jogo do Amor e do Ódio+inauthor:Sally Thorne',
+        'intitle:Um Lugar Bem Longe Daqui+inauthor:Delia Owens',
+        'intitle:Cidade da Lua Crescente+inauthor:Sarah J. Maas',
+        'intitle:Os Seis de Atlas+inauthor:Olivie Blake',
+        'intitle:Projeto Hail Mary+inauthor:Andy Weir'
+      ];
 
-      setRomanceBooks(romance);
-      setClassicRomanceBooks(classicRomance);
-      setModernRomanceBooks(modernRomance);
-      setFantasyBooks(fantasy);
-      setScifiBooks(scifi);
-      setMysteryBooks(mystery);
-      setSelfHelpBooks(selfHelp);
+      // Modern Romance specific queries
+      const modernRomanceQueries = [
+        'intitle:Amor, Teoricamente+inauthor:Ali Hazelwood',
+        'intitle:A Hipótese do Amor+inauthor:Ali Hazelwood',
+        'intitle:Amor & Outras Coisas+inauthor:Christina Lauren',
+        'intitle:Teto Para Dois+inauthor:Beth O\'Leary',
+        'intitle:Um de Nós É o Próximo+inauthor:Karen McManus',
+        'intitle:Orgulho e Preconceito+inauthor:Jane Austen',
+        'intitle:Razão e Sensibilidade+inauthor:Jane Austen',
+        'intitle:Jane Eyre+inauthor:Charlotte Brontë',
+        'intitle:E o Vento Levou+inauthor:Margaret Mitchell',
+        'intitle:Os Sete Maridos de Evelyn Hugo+inauthor:Taylor Jenkins Reid',
+        'intitle:Amor(es) Verdadeiro(s)+inauthor:Taylor Jenkins Reid',
+        'intitle:Como Eu Era Antes de Você+inauthor:Jojo Moyes',
+        'intitle:Um Acordo Peculiar+inauthor:Talia Hibbert',
+        'intitle:A Noiva Acidental+inauthor:Tessa Bailey',
+        'intitle:Para Todos os Garotos que Já Amei+inauthor:Jenny Han'
+      ];
+
+      // Fantasy specific queries
+      const fantasyQueries = [
+        'intitle:Corte de Espinhos e Rosas+inauthor:Sarah J. Maas',
+        'intitle:Corte de Névoa e Fúria+inauthor:Sarah J. Maas',
+        'intitle:Corte de Asas e Ruína+inauthor:Sarah J. Maas',
+        'intitle:Casa de Terra e Sangue+inauthor:Sarah J. Maas',
+        'intitle:Casa de Céu e Sopro+inauthor:Sarah J. Maas',
+        'intitle:Trono de Vidro+inauthor:Sarah J. Maas',
+        'intitle:Six of Crows+inauthor:Leigh Bardugo',
+        'intitle:Sombra e Ossos+inauthor:Leigh Bardugo',
+        'intitle:O Príncipe Cruel+inauthor:Holly Black',
+        'intitle:A Rainha do Nada+inauthor:Holly Black',
+        'intitle:A Canção de Aquiles+inauthor:Madeline Miller',
+        'intitle:Circe+inauthor:Madeline Miller',
+        'intitle:O Nome do Vento+inauthor:Patrick Rothfuss',
+        'intitle:A Sociedade do Anel+inauthor:Tolkien',
+        'intitle:As Crônicas de Nárnia+inauthor:C. S. Lewis'
+      ];
+
+      // Mystery/Thriller specific queries
+      const mysteryQueries = [
+        'intitle:A Paciente Silenciosa+inauthor:Alex Michaelides',
+        'intitle:A Mulher na Janela+inauthor:A. J. Finn',
+        'intitle:Garota Exemplar+inauthor:Gillian Flynn',
+        'intitle:A Última Festa+inauthor:Lucy Foley',
+        'intitle:A Lista de Convidados+inauthor:Lucy Foley',
+        'intitle:As Musas+inauthor:Alex Michaelides',
+        'intitle:Um de Nós Está Mentindo+inauthor:McManus',
+        'intitle:O Homem de Giz+inauthor:C. J. Tudor',
+        'intitle:A Queda+inauthor:T. J. Newman',
+        'intitle:O Instituto+inauthor:Stephen King',
+        'intitle:Assassinato no Expresso do Oriente+inauthor:Agatha Christie',
+        'intitle:O Assassinato de Roger Ackroyd+inauthor:Agatha Christie',
+        'intitle:Morte no Nilo+inauthor:Agatha Christie',
+        'intitle:E Não Sobrou Nenhum+inauthor:Agatha Christie',
+        'intitle:Os Crimes ABC+inauthor:Agatha Christie'
+      ];
+
+      // Brazilian Literature specific queries
+      const brazilianQueries = [
+        'intitle:Suicidas+inauthor:Raphael Montes',
+        'intitle:Dias Perfeitos+inauthor:Raphael Montes',
+        'intitle:Jantar Secreto+inauthor:Raphael Montes',
+        'intitle:Uma Mulher no Escuro+inauthor:Raphael Montes',
+        'intitle:O Vilarejo+inauthor:Raphael Montes',
+        'intitle:O Caso Laura+inauthor:André Vianco',
+        'intitle:A Noite Maldita+inauthor:André Vianco',
+        'intitle:O Escravo de Capela+inauthor:Marcos DeBrito',
+        'intitle:A Casa dos Dois Amores+inauthor:Marina Colasanti',
+        'intitle:Serpentário+inauthor:Felipe Castilho',
+        'intitle:Ninguém Nasce Herói+inauthor:Eric Novello',
+        'intitle:Cães+inauthor:Fábio Kabral',
+        'intitle:O Grande Circo Negro+inauthor:Carmen Capuz',
+        'intitle:Homens Elegantes+inauthor:Samir Machado de Machado',
+        'intitle:O Clube dos Jardineiros de Fumaça+inauthor:Carol Bensimon'
+      ];
+
+      // Self-Help/Personal Development specific queries
+      const selfHelpQueries = [
+        'intitle:Rápido e Devagar+inauthor:Daniel Kahneman',
+        'intitle:A Coragem de Ser Imperfeito+inauthor:Brené Brown',
+        'intitle:O Jeito Harvard de Ser Feliz+inauthor:Shawn Achor',
+        'intitle:Despertar o Tigre+inauthor:Peter Levine',
+        'intitle:Fluir+inauthor:Mihaly Csikszentmihalyi',
+        'intitle:Meditações+inauthor:Marco Aurélio',
+        'intitle:Em Busca de Sentido+inauthor:Viktor Frankl',
+        'intitle:A Arte de Viver+inauthor:Epicteto',
+        'intitle:A Morte é um Dia que Vale a Pena Viver+inauthor:Ana Claudia Quintana Arantes',
+        'intitle:Trabalho Focado+inauthor:Cal Newport',
+        'intitle:Minimalismo Digital+inauthor:Cal Newport',
+        'intitle:A Regra é Não Ter Regras+inauthor:Reed Hastings',
+        'intitle:Os Quatro Amores+inauthor:C.S. Lewis',
+        'intitle:O Caminho do Artista+inauthor:Julia Cameron',
+        'intitle:Coragem para Liderar+inauthor:Brené Brown'
+      ];
+
+      // Helper for concurrent processing with queue
+      const processQueue = async (items: { query: string, setter: React.Dispatch<React.SetStateAction<GoogleBookResult[]>> }[]) => {
+        const CONCURRENCY = 4; // Increased for speed
+        const DELAY_BETWEEN_REQUESTS = 50; // Minimal delay
+
+        let index = 0;
+        const total = items.length;
+
+        const next = async () => {
+          if (index >= total) return;
+          
+          const currentIndex = index++;
+          const item = items[currentIndex];
+          
+          try {
+            const res = await searchGoogleBooks(item.query);
+            if (res && res[0]) {
+              // Incremental update for better UX
+              item.setter(prev => {
+                // Avoid duplicates based on ID
+                if (prev.some(b => b.id === res[0].id)) return prev;
+                return [...prev, res[0]];
+              });
+            }
+          } catch (e) {
+            console.error(`Error fetching ${item.query}:`, e);
+          }
+          
+          await new Promise(r => setTimeout(r, DELAY_BETWEEN_REQUESTS));
+          await next();
+        };
+
+        const promises = [];
+        for (let i = 0; i < CONCURRENCY; i++) {
+          promises.push(next());
+        }
+        await Promise.all(promises);
+      };
+
+      const loadAllCategories = async () => {
+        // Simple searches first - fire and forget
+        searchGoogleBooks('subject:romance+classic').then(setClassicRomanceBooks);
+
+        // Prepare queue items
+        const queueItems = [
+          ...bookTokQueries.map(q => ({ query: q, setter: setRomanceBooks })),
+          ...modernRomanceQueries.map(q => ({ query: q, setter: setModernRomanceBooks })),
+          ...fantasyQueries.map(q => ({ query: q, setter: setFantasyBooks })),
+          ...brazilianQueries.map(q => ({ query: q, setter: setScifiBooks })),
+          ...mysteryQueries.map(q => ({ query: q, setter: setMysteryBooks })),
+          ...selfHelpQueries.map(q => ({ query: q, setter: setSelfHelpBooks })),
+        ];
+
+        // Process all in parallel with concurrency limit
+        await processQueue(queueItems);
+      };
+
+      loadAllCategories();
     };
 
     loadRecommendations();
@@ -63,10 +245,19 @@ export default function Search() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim()) return;
+    if (!query.trim() && !authorFilter && subjectFilter === 'all') return;
 
     setSearching(true);
-    const data = await searchGoogleBooks(query);
+    
+    let searchQuery = query.trim();
+    if (authorFilter.trim()) {
+      searchQuery += `+inauthor:${authorFilter.trim()}`;
+    }
+    if (subjectFilter !== 'all') {
+      searchQuery += `+subject:${subjectFilter}`;
+    }
+
+    const data = await searchGoogleBooks(searchQuery);
     setResults(data);
     setSearching(false);
   };
@@ -141,7 +332,7 @@ export default function Search() {
     isGoogleBook = true 
   }: { 
     title: string; 
-    icon: any; 
+    icon: LucideIcon | React.ComponentType<React.ComponentProps<"svg">>; 
     books: (GoogleBookResult | Book)[]; 
     isGoogleBook?: boolean; 
   }) => {
@@ -218,24 +409,69 @@ export default function Search() {
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="text-center space-y-4 pt-4">
           <h1 className="text-3xl font-bold font-display">Encontre sua próxima leitura</h1>
-          <p className="text-muted-foreground">
-            Explore o catálogo do Google Books ou veja o que a comunidade está lendo
-          </p>
         </div>
 
-        <form onSubmit={handleSearch} className="flex gap-2 max-w-2xl mx-auto">
-          <div className="relative flex-1">
-            <SearchIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Título, autor, ISBN ou categoria..."
-              className="pl-10 h-12 text-lg"
-            />
+        <form onSubmit={handleSearch} className="max-w-2xl mx-auto space-y-4">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <SearchIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar"
+                className="pl-10 h-12 text-lg"
+              />
+            </div>
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="h-12 w-12 px-0 shrink-0"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter className="w-5 h-5" />
+            </Button>
+            <Button type="submit" size="lg" className="h-12 w-12 px-0 gradient-primary text-white shrink-0" disabled={searching}>
+              {searching ? <Loader2 className="w-5 h-5 animate-spin" /> : <SearchIcon className="w-5 h-5" />}
+            </Button>
           </div>
-          <Button type="submit" size="lg" className="h-12 px-8 gradient-primary text-white" disabled={searching}>
-            {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Buscar'}
-          </Button>
+
+          {showFilters && (
+            <div className="p-4 border rounded-lg bg-card/50 backdrop-blur-sm space-y-4 animate-in fade-in slide-in-from-top-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="author">Autor</Label>
+                  <Input 
+                    id="author" 
+                    placeholder="Ex: J.K. Rowling" 
+                    value={authorFilter}
+                    onChange={(e) => setAuthorFilter(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="subject">Gênero / Categoria</Label>
+                  <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+                    <SelectTrigger id="subject">
+                      <SelectValue placeholder="Selecione um gênero" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="fiction">Ficção</SelectItem>
+                      <SelectItem value="romance">Romance</SelectItem>
+                      <SelectItem value="fantasy">Fantasia</SelectItem>
+                      <SelectItem value="mystery">Mistério & Suspense</SelectItem>
+                      <SelectItem value="science fiction">Ficção Científica</SelectItem>
+                      <SelectItem value="horror">Terror</SelectItem>
+                      <SelectItem value="biography">Biografia</SelectItem>
+                      <SelectItem value="history">História</SelectItem>
+                      <SelectItem value="business">Negócios</SelectItem>
+                      <SelectItem value="self-help">Autoajuda</SelectItem>
+                      <SelectItem value="comics">Quadrinhos / Mangás</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
         </form>
 
         {results.length > 0 ? (
@@ -302,8 +538,8 @@ export default function Search() {
             />
             
             <CategorySection 
-              title="Mais Romances" 
-              icon={Heart} 
+              title="Destaques do BookTok (YA)" 
+              icon={Zap} 
               books={romanceBooks} 
             />
             
@@ -315,13 +551,13 @@ export default function Search() {
             
             <CategorySection 
               title="Suspense e Mistério" 
-              icon={BookOpen} 
+              icon={Eye} 
               books={mysteryBooks} 
             />
             
             <CategorySection 
-              title="Ficção Científica" 
-              icon={Rocket} 
+              title="Literatura Brasileira" 
+              icon={BrazilFlagIcon} 
               books={scifiBooks} 
             />
 

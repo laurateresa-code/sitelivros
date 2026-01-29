@@ -36,12 +36,12 @@ export function Navbar() {
               <BookOpen className="w-6 h-6 text-white" />
             </div>
             <span className="font-display text-xl font-bold gradient-text hidden sm:inline group-hover:opacity-80 transition-opacity">
-              BookLive
+              Litera
             </span>
           </Link>
 
           {/* Navigation */}
-          <div className="flex items-center gap-1">
+          <div className="hidden md:flex items-center gap-1">
             {navItems.map(item => (
               <Link key={item.path} to={item.path}>
                 <Button
@@ -90,7 +90,7 @@ export function Navbar() {
                 <DropdownMenuItem asChild>
                   <Link to="/my-books" className="cursor-pointer">
                     <BookOpen className="mr-2 h-4 w-4" />
-                    Meus Livros
+                    Biblioteca
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

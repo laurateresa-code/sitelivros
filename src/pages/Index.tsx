@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Search, Trophy, Users, ArrowRight, Flame, Book, Play, Bell } from 'lucide-react';
+import { BookOpen, Trophy, Users, Bell } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -13,19 +13,17 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { Layout } from '@/components/layout/Layout';
 import { useAuth } from '@/hooks/useAuth';
 import { useFeed } from '@/hooks/useFeed';
-import { useUserBooks } from '@/hooks/useUserBooks';
 import { PostCard } from '@/components/feed/PostCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ReadingSessionModal } from '@/components/reading/ReadingSessionModal';
 import { WelcomeCard } from '@/components/feed/WelcomeCard';
 import { CreatePostDialog } from '@/components/feed/CreatePostDialog';
 
 const LandingPage = () => {
-  const { posts, loading: loadingFeed, likePost, unlikePost } = useFeed();
+  const { posts, loading: loadingFeed, likePost, unlikePost, deletePost } = useFeed();
 
   return (
     <div className="min-h-screen bg-background">
@@ -127,6 +125,7 @@ const LandingPage = () => {
                 post={post}
                 onLike={likePost}
                 onUnlike={unlikePost}
+                onDelete={deletePost}
               />
             ))}
             
@@ -155,9 +154,7 @@ const LandingPage = () => {
 
 const Dashboard = () => {
   const { user, profile } = useAuth();
-  const { posts, loading: loadingFeed, likePost, unlikePost, refresh } = useFeed();
-  const { readingBooks, wantToReadBooks, loading: loadingBooks } = useUserBooks();
-  const [isReadingSessionOpen, setIsReadingSessionOpen] = useState(false);
+  const { posts, loading: loadingFeed, likePost, unlikePost, refresh, deletePost } = useFeed();
   
   const { unreadCount, loading: loadingNotifications } = useNotifications();
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
@@ -171,8 +168,6 @@ const Dashboard = () => {
       setHasCheckedNotifications(true);
     }
   }, [loadingNotifications, unreadCount, hasCheckedNotifications]);
-
-  const currentBook = readingBooks[0]; // Assume first book is current for simplicity
 
   return (
     <>
@@ -205,7 +200,7 @@ const Dashboard = () => {
       </Dialog>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 animate-fade-in relative z-10">
-        {/* Left Sidebar - Profile & Current Reading */}
+        {/* Left Sidebar - Profile */}
         <div className="md:col-span-3 space-y-6">
         <Card>
           <CardContent className="pt-6">
@@ -229,74 +224,16 @@ const Dashboard = () => {
             </Link>
           </CardContent>
         </Card>
+        </div>
 
-        {currentBook ? (
-          <Card className="overflow-hidden">
-            <CardHeader className="bg-muted/50 pb-4">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-primary" />
-                Lendo Agora
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="flex gap-4">
-                <div className="w-16 h-24 flex-shrink-0 bg-muted rounded overflow-hidden shadow-sm">
-                  {currentBook.book?.cover_url ? (
-                    <img src={currentBook.book.cover_url} alt={currentBook.book.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Book className="w-6 h-6 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-sm line-clamp-2">{currentBook.book?.title}</h4>
-                  <p className="text-xs text-muted-foreground line-clamp-1">{currentBook.book?.author}</p>
-                  
-                  <div className="mt-3">
-                    <Button 
-                      size="sm" 
-                      className="w-full" 
-                      onClick={() => setIsReadingSessionOpen(true)}
-                    >
-                      <Play className="w-4 h-4 mr-2" />
-                      Registrar Sessão
-                    </Button>
-                    <ReadingSessionModal 
-                      open={isReadingSessionOpen}
-                      onOpenChange={setIsReadingSessionOpen}
-                      userBook={currentBook}
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="bg-muted/30 border-dashed">
-            <CardContent className="pt-6 text-center">
-              <div className="w-12 h-12 mx-auto rounded-full bg-muted flex items-center justify-center mb-3">
-                <BookOpen className="w-6 h-6 text-muted-foreground" />
-              </div>
-              <p className="text-sm font-medium">Você não está lendo nada no momento</p>
-              <Link to="/search">
-                <Button variant="link" className="mt-2">
-                  Começar uma leitura
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Main Feed */}
-      <div className="md:col-span-6 space-y-6">
+        {/* Main Feed */}
+        <div className="md:col-span-9 space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold">Feed de Atividades</h2>
         </div>
 
         <WelcomeCard />
-        <CreatePostDialog onPostCreated={refresh} />
+        <CreatePostDialog onPostCreated={refresh} fab />
 
         {loadingFeed ? (
           <div className="space-y-4">
@@ -320,6 +257,7 @@ const Dashboard = () => {
                 post={post}
                 onLike={likePost}
                 onUnlike={unlikePost}
+                onDelete={deletePost}
               />
             ))}
           </div>
@@ -329,70 +267,6 @@ const Dashboard = () => {
             <p className="text-sm text-muted-foreground">Comece a seguir outros leitores ou inicie uma leitura!</p>
           </div>
         )}
-      </div>
-
-      {/* Right Sidebar - Suggestions */}
-      <div className="md:col-span-3 space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Quero Ler</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {loadingBooks ? (
-              <div className="space-y-2">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            ) : wantToReadBooks.length > 0 ? (
-              <div className="space-y-3">
-                {wantToReadBooks.slice(0, 5).map(ub => (
-                  <div key={ub.id} className="flex gap-3 items-center group">
-                    <div className="w-10 h-14 bg-muted rounded overflow-hidden flex-shrink-0">
-                      {ub.book?.cover_url && (
-                        <img src={ub.book.cover_url} alt={ub.book.title} className="w-full h-full object-cover" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <Link to={`/book/${ub.book_id}`} className="font-medium text-sm line-clamp-1 hover:text-primary transition-colors">
-                        {ub.book?.title}
-                      </Link>
-                      <p className="text-xs text-muted-foreground line-clamp-1">{ub.book?.author}</p>
-                    </div>
-                  </div>
-                ))}
-                {wantToReadBooks.length > 5 && (
-                  <Link to="/my-books">
-                    <Button variant="link" size="sm" className="w-full text-muted-foreground">
-                      Ver mais {wantToReadBooks.length - 5} livros
-                    </Button>
-                  </Link>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <p className="text-xs text-muted-foreground">Sua lista está vazia</p>
-                <Link to="/search">
-                  <Button variant="outline" size="sm" className="mt-2 w-full">
-                    Adicionar Livros
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-          <CardContent className="pt-6 text-center">
-            <Trophy className="w-10 h-10 mx-auto text-primary mb-3" />
-            <h3 className="font-bold mb-1">Desafio de Leitura</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Você leu {profile?.total_books_read || 0} livros este ano.
-            </p>
-            <Button size="sm" className="w-full gradient-primary text-white">
-              Ver Metas
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     </div>
     </>
