@@ -249,6 +249,8 @@ export function useUserBooks(userId?: string) {
     wantToReadBooks: books.filter(b => b.status === 'want_to_read'),
     loading,
     addToList,
+    updateBook,
+    rateBook,
     removeBook,
     refresh: fetchBooks
   };
