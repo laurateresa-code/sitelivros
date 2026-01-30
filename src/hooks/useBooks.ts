@@ -1,9 +1,11 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Book, GoogleBookResult } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 export function useBooks() {
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   const searchGoogleBooks = useCallback(async (query: string): Promise<GoogleBookResult[]> => {
     if (!query.trim()) return [];
@@ -64,9 +66,25 @@ export function useBooks() {
       }
 
       const data = await response.json();
-      const items = data.items || [];
+      let items: GoogleBookResult[] = data.items || [];
       
+      // Deduplicate items based on Title + Author
       if (items.length > 0) {
+        const seen = new Set<string>();
+        items = items.filter(item => {
+          const title = item.volumeInfo.title?.toLowerCase().trim() || '';
+          const authors = item.volumeInfo.authors?.map(a => a.toLowerCase().trim()).sort().join(',') || '';
+          const key = `${title}|${authors}`;
+          
+          if (seen.has(key)) return false;
+          
+          // Filter out "collector's edition", "box set", etc if needed
+          // For now, basic deduplication is the main goal. 
+          // We keep the first occurrence which is usually the most relevant/popular result.
+          seen.add(key);
+          return true;
+        });
+
         localStorage.setItem(cacheKey, JSON.stringify({
           timestamp: Date.now(),
           items
@@ -128,11 +146,16 @@ export function useBooks() {
       return data as Book;
     } catch (error) {
       console.error('Error adding book:', error);
+      toast({
+        title: 'Erro ao salvar livro',
+        description: 'Não foi possível salvar o livro no banco de dados. Verifique se as migrações foram aplicadas.',
+        variant: 'destructive',
+      });
       return null;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   const addManualBook = useCallback(async (
     bookData: Partial<Book>,

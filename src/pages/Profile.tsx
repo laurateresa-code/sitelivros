@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PostCard } from '@/components/feed/PostCard';
 import { useFeed } from '@/hooks/useFeed';
-import { Loader2, Calendar, Flame, Edit, UserPlus, UserMinus, BookOpen } from 'lucide-react';
+import { Loader2, Calendar, Flame, Edit, UserPlus, UserMinus, BookOpen, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
@@ -43,6 +43,7 @@ export default function Profile() {
   const [monthlyStats, setMonthlyStats] = useState<{ name: string; livros: number; paginas: number }[]>([]);
   const [genreStats, setGenreStats] = useState<{ name: string; value: number }[]>([]);
   const [statusStats, setStatusStats] = useState<{ name: string; value: number }[]>([]);
+  const [badges, setBadges] = useState<any[]>([]); // Using any for now to avoid strict type issues with joins
   const { likePost, unlikePost, deletePost } = useFeed();
 
   const handleDeletePost = async (postId: string) => {
@@ -259,6 +260,17 @@ export default function Profile() {
                 if (error) console.error('Error syncing stats:', error);
              });
           }
+        }
+
+        // --- Fetch Badges ---
+        const { data: badgesData } = await supabase
+          .from('user_badges')
+          .select('*, badge:badges(*)')
+          .eq('user_id', profileData.user_id)
+          .order('awarded_at', { ascending: false });
+        
+        if (badgesData) {
+          setBadges(badgesData);
         }
 
         const followers = await getFollowers(profileData.user_id);
@@ -529,6 +541,44 @@ export default function Profile() {
           onOpenChange={setShowLevelDialog} 
           profile={profile} 
         />
+        
+        {/* Badges Section */}
+        {badges.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Trophy className="w-5 h-5 text-yellow-500" />
+                Conquistas & Stickers
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-6">
+                {badges.map((userBadge) => (
+                  <div key={userBadge.id} className="flex flex-col items-center gap-2 group relative cursor-help">
+                    <div className="w-16 h-16 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 rounded-full flex items-center justify-center border-2 border-yellow-500/20 group-hover:border-yellow-500 transition-colors shadow-sm">
+                       {userBadge.badge?.image_url ? (
+                         <img src={userBadge.badge.image_url} alt={userBadge.badge.name} className="w-full h-full object-cover rounded-full" />
+                       ) : (
+                         <Trophy className="w-8 h-8 text-yellow-500" /> 
+                       )}
+                    </div>
+                    <span className="text-xs font-medium text-center max-w-[100px] leading-tight text-muted-foreground group-hover:text-foreground transition-colors">
+                      {userBadge.badge?.name}
+                    </span>
+                    
+                    {/* Tooltip-like overlay */}
+                    <div className="absolute bottom-full mb-2 hidden group-hover:block z-10 bg-popover text-popover-foreground text-xs px-2 py-1 rounded shadow-md border whitespace-nowrap">
+                      {userBadge.badge?.description || userBadge.badge?.name}
+                      <div className="text-[10px] opacity-70 mt-0.5">
+                        {new Date(userBadge.awarded_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
         
         {/* Content */}
         <Tabs defaultValue="activity" className="space-y-6">

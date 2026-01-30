@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          key: string
+          value: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          value: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          key?: string
+          value?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       badges: {
         Row: {
           created_at: string | null
@@ -265,6 +286,7 @@ export type Database = {
       posts: {
         Row: {
           book_id: string | null
+          club_id: string | null
           comments_count: number | null
           content: string | null
           created_at: string | null
@@ -278,6 +300,7 @@ export type Database = {
         }
         Insert: {
           book_id?: string | null
+          club_id?: string | null
           comments_count?: number | null
           content?: string | null
           created_at?: string | null
@@ -291,6 +314,7 @@ export type Database = {
         }
         Update: {
           book_id?: string | null
+          club_id?: string | null
           comments_count?: number | null
           content?: string | null
           created_at?: string | null

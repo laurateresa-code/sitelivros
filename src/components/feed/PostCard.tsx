@@ -1,19 +1,13 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Heart, MessageCircle, Share2, BookOpen, Clock, FileText, MessageSquare, Check, MoreHorizontal, Trash2, Loader2 } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
+import { Link, useNavigate } from 'react-router-dom';
+import { Heart, MessageCircle, Share2, BookOpen, Clock, FileText, MessageSquare, Check, MoreVertical, Trash2, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,17 +34,27 @@ interface PostCardProps {
   onLike: (postId: string) => void;
   onUnlike: (postId: string) => void;
   onDelete?: (postId: string) => Promise<void> | void;
+  isDetailView?: boolean;
 }
 
-export function PostCard({ post, onLike, onUnlike, onDelete }: PostCardProps) {
+export function PostCard({ post, onLike, onUnlike, onDelete, isDetailView = false }: PostCardProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(isDetailView);
   const [copied, setCopied] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const isOwner = user?.id === post.user_id;
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (isDetailView) return;
+    // Prevent navigation if clicking on interactive elements
+    if ((e.target as HTMLElement).closest('button, a, [role="button"]')) return;
+    
+    navigate(`/post/${post.id}`);
+  };
 
   const handleDelete = async () => {
     if (!onDelete) return;
@@ -93,44 +97,6 @@ export function PostCard({ post, onLike, onUnlike, onDelete }: PostCardProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const getPostIcon = () => {
-    switch (post.type) {
-      case 'started_reading':
-        return <BookOpen className="w-4 h-4 text-success" />;
-      case 'finished_reading':
-        return <BookOpen className="w-4 h-4 text-primary" />;
-      case 'session_update':
-        return <Clock className="w-4 h-4 text-secondary" />;
-      case 'review':
-        return <FileText className="w-4 h-4 text-accent" />;
-      case 'milestone':
-        return <MessageSquare className="w-4 h-4 text-primary" />;
-      case 'general':
-        return <MessageSquare className="w-4 h-4 text-primary" />;
-      default:
-        return <BookOpen className="w-4 h-4" />;
-    }
-  };
-
-  const getPostLabel = () => {
-    switch (post.type) {
-      case 'started_reading':
-        return 'começou a ler';
-      case 'finished_reading':
-        return 'terminou de ler';
-      case 'session_update':
-        return 'sessão de leitura';
-      case 'review':
-        return 'avaliou';
-      case 'milestone':
-        return 'compartilhou um pensamento';
-      case 'general':
-        return 'compartilhou';
-      default:
-        return '';
-    }
-  };
-
   const renderContentWithMentions = (content: string) => {
     if (!content || typeof content !== 'string') return content;
 
@@ -153,8 +119,15 @@ export function PostCard({ post, onLike, onUnlike, onDelete }: PostCardProps) {
   };
 
   return (
-    <Card className="animate-slide-up overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-      <CardHeader className="pb-3">
+    <Card 
+      className={`animate-slide-up transition-all duration-300 ${
+        !isDetailView 
+          ? 'hover:shadow-lg hover:-translate-y-1 cursor-pointer overflow-hidden' 
+          : 'shadow-none border-0 rounded-none md:border md:shadow-sm md:rounded-lg overflow-visible bg-background md:bg-card'
+      }`}
+      onClick={handleCardClick}
+    >
+      <CardHeader className={`pb-3 ${isDetailView ? 'px-4 pt-4' : ''}`}>
         <div className="flex items-start justify-between">
           <Link 
             to={`/profile/${post.profile?.username}`}
@@ -180,36 +153,19 @@ export function PostCard({ post, onLike, onUnlike, onDelete }: PostCardProps) {
                   {post.profile?.reader_level?.replace('_', ' ')}
                 </Badge>
               </div>
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                {getPostIcon()}
-                <span>{getPostLabel()}</span>
-              </div>
             </div>
           </Link>
           <div className="flex items-center gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-sm text-muted-foreground cursor-help">
-                    {formatDistanceToNow(new Date(post.created_at), {
-                      addSuffix: true,
-                      locale: ptBR,
-                    })}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {format(new Date(post.created_at), "dd 'de' MMMM 'às' HH:mm", {
-                    locale: ptBR,
-                  })}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
             {isOwner && onDelete && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                    <MoreHorizontal className="h-4 w-4" />
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -227,7 +183,7 @@ export function PostCard({ post, onLike, onUnlike, onDelete }: PostCardProps) {
         </div>
       </CardHeader>
 
-      <CardContent className="pb-4">
+      <CardContent className={`pb-4 ${isDetailView ? 'px-4' : ''}`}>
         {/* Book info */}
         {post.book && (
           <Link 
@@ -271,7 +227,7 @@ export function PostCard({ post, onLike, onUnlike, onDelete }: PostCardProps) {
         )}
 
         {/* Post content */}
-        {post.content && (
+        {post.content && !/^Leu \d+ páginas em \d+ minutos!$/.test(post.content) && (
           <p className="text-foreground leading-relaxed">
             {renderContentWithMentions(post.content)}
           </p>
@@ -283,15 +239,27 @@ export function PostCard({ post, onLike, onUnlike, onDelete }: PostCardProps) {
             <StarRating rating={post.rating} readonly size="sm" />
           </div>
         )}
+
+        {/* Date and Duration Footer */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-4">
+          <span>
+            {format(new Date(post.created_at), "d 'de' MMMM 'às' HH:mm", {
+              locale: ptBR,
+            })}
+          </span>
+        </div>
       </CardContent>
 
-      <CardFooter className="pt-0 border-t">
+      <CardFooter className={`pt-0 border-t flex-col items-stretch ${isDetailView ? 'px-4' : ''}`}>
         <div className="flex items-center gap-4 w-full pt-3">
           <Button
             variant="ghost"
             size="sm"
             className={`gap-2 ${post.liked_by_user ? 'text-destructive' : ''}`}
-            onClick={handleLikeClick}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleLikeClick();
+            }}
             disabled={!user}
           >
             <Heart className={`w-4 h-4 ${post.liked_by_user ? 'fill-current' : ''}`} />
@@ -301,7 +269,12 @@ export function PostCard({ post, onLike, onUnlike, onDelete }: PostCardProps) {
             variant="ghost"
             size="sm"
             className="gap-2"
-            onClick={() => setShowComments(!showComments)}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!isDetailView) {
+                setShowComments(!showComments);
+              }
+            }}
           >
             <MessageCircle className="w-4 h-4" />
             <span>{post.comments_count}</span>
@@ -310,7 +283,10 @@ export function PostCard({ post, onLike, onUnlike, onDelete }: PostCardProps) {
             variant="ghost" 
             size="sm" 
             className="gap-2 ml-auto"
-            onClick={handleShareClick}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleShareClick();
+            }}
           >
             {copied ? <Check className="w-4 h-4 text-green-500" /> : <Share2 className="w-4 h-4" />}
           </Button>

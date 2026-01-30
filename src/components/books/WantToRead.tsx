@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import { Clock } from 'lucide-react';
 
 export function WantToRead() {
   const { wantToReadBooks, loading } = useUserBooks();
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <Card>
@@ -24,7 +26,7 @@ export function WantToRead() {
           </div>
         ) : wantToReadBooks.length > 0 ? (
           <div className="space-y-3">
-            {wantToReadBooks.slice(0, 5).map(ub => (
+            {(expanded ? wantToReadBooks : wantToReadBooks.slice(0, 5)).map(ub => (
               <div key={ub.id} className="flex gap-3 items-center group">
                 <div className="w-10 h-14 bg-muted rounded overflow-hidden flex-shrink-0">
                   {ub.book?.cover_url && (
@@ -40,8 +42,13 @@ export function WantToRead() {
               </div>
             ))}
             {wantToReadBooks.length > 5 && (
-              <Button variant="link" size="sm" className="w-full text-muted-foreground">
-                Ver mais {wantToReadBooks.length - 5} livros
+              <Button 
+                variant="link" 
+                size="sm" 
+                className="w-full text-muted-foreground"
+                onClick={() => setExpanded(!expanded)}
+              >
+                {expanded ? 'Ver menos' : `Ver mais ${wantToReadBooks.length - 5} livros`}
               </Button>
             )}
           </div>

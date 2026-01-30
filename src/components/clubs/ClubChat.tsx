@@ -140,7 +140,7 @@ export function ClubChat({ clubId, members }: ClubChatProps) {
   };
 
   return (
-    <div className="flex flex-col h-[600px] border rounded-lg bg-card overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-14rem)] min-h-[400px] border rounded-lg bg-card overflow-hidden">
       <div className="p-4 border-b bg-muted/30">
         <h3 className="font-semibold flex items-center gap-2">
           Chat do Clube
@@ -178,23 +178,25 @@ export function ClubChat({ clubId, members }: ClubChatProps) {
                       isMe ? 'items-end' : 'items-start'
                     }`}
                   >
-                    <div className="flex items-baseline gap-2 mb-1">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {displayName}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground/70">
-                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
                     <div
-                      className={`p-3 rounded-lg text-sm ${
+                      className={`px-4 py-2 rounded-2xl text-sm shadow-sm ${
                         isMe
-                          ? 'bg-primary text-primary-foreground rounded-tr-none'
-                          : 'bg-muted rounded-tl-none'
+                          ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                          : 'bg-muted rounded-tl-sm'
                       }`}
                     >
-                      {msg.content}
+                      <span 
+                        className={`block text-xs font-bold mb-1 ${
+                          isMe ? 'text-white/90' : 'text-primary'
+                        }`}
+                      >
+                        {displayName}
+                      </span>
+                      <p className="leading-relaxed">{msg.content}</p>
                     </div>
+                    <span className="text-[10px] text-muted-foreground/70 mt-1 px-1">
+                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </div>
                 </div>
               );

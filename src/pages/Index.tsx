@@ -229,7 +229,7 @@ const Dashboard = () => {
         {/* Main Feed */}
         <div className="md:col-span-9 space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Feed de Atividades</h2>
+          <h2 className="text-2xl font-bold">Atividades Recentes</h2>
         </div>
 
         <WelcomeCard />

@@ -52,10 +52,17 @@ export function EditClubDialog({ club, open, onOpenChange, onClubUpdated }: Edit
 
   const handleBookSelect = async (googleBook: GoogleBookResult) => {
     if (!user) return;
-    const book = await addBookFromGoogle(googleBook, user.id);
-    if (book) {
-      setCurrentBook(book);
-      setIsSearchingBook(false);
+    
+    try {
+      const book = await addBookFromGoogle(googleBook, user.id);
+      if (book) {
+        setCurrentBook(book);
+        setIsSearchingBook(false);
+      } else {
+        // Error is already toasted in useBooks
+      }
+    } catch (error) {
+      console.error("Failed to select book:", error);
     }
   };
 

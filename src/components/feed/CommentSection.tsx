@@ -159,6 +159,13 @@ export function CommentSection({ postId, postAuthorId }: CommentSectionProps) {
   const { user, profile } = useAuth();
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  
+  // Focus input on mount
+  const inputRef = (input: HTMLInputElement | null) => {
+    if (input) {
+      setTimeout(() => input.focus(), 100);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,8 +180,36 @@ export function CommentSection({ postId, postAuthorId }: CommentSectionProps) {
   const rootComments = comments.filter(c => !c.parent_id);
 
   return (
-    <div className="pt-4 mt-4 border-t animate-fade-in">
-      <div className="space-y-4 mb-4">
+    <div className="pt-2 mt-2 border-t animate-fade-in">
+      {user && (
+        <form onSubmit={handleSubmit} className="flex gap-2 items-center mb-4 pt-2">
+          <div className="flex-1 relative">
+            <Input
+              ref={inputRef}
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Escreva um comentário..."
+              className="pr-12 h-10 text-sm rounded-full bg-secondary/10 border-transparent focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-primary transition-all shadow-sm w-full"
+              disabled={submitting}
+            />
+            <Button
+              type="submit"
+              size="sm"
+              variant="ghost"
+              className="absolute right-1 top-1 h-8 w-8 p-0 rounded-full text-muted-foreground hover:text-primary hover:bg-transparent"
+              disabled={!newComment.trim() || submitting}
+            >
+              {submitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
+        </form>
+      )}
+
+      <div className="space-y-4">
         {loading ? (
           <div className="flex justify-center py-2">
             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
@@ -197,39 +232,6 @@ export function CommentSection({ postId, postAuthorId }: CommentSectionProps) {
           </p>
         )}
       </div>
-
-      {user && (
-        <form onSubmit={handleSubmit} className="flex gap-3 items-center">
-          <Avatar className="w-8 h-8 border border-muted">
-            <AvatarImage src={profile?.avatar_url || undefined} />
-            <AvatarFallback className="text-xs">
-              {profile?.username?.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 relative">
-            <Input
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Escreva um comentário..."
-              className="pr-10 h-10 text-sm"
-              disabled={submitting}
-            />
-            <Button
-              type="submit"
-              size="sm"
-              variant="ghost"
-              className="absolute right-0 top-0 h-10 w-10 p-0 text-muted-foreground hover:text-primary"
-              disabled={!newComment.trim() || submitting}
-            >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </Button>
-          </div>
-        </form>
-      )}
     </div>
   );
 }

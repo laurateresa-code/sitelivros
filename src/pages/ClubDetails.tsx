@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { supabase } from '@/integrations/supabase/client';
 import { Club, Profile, ClubMemberWithProfile } from '@/types';
@@ -7,21 +7,25 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ArrowLeft, Users, BookOpen, Trophy } from 'lucide-react';
+import { Loader2, ArrowLeft, Users, BookOpen, Share2, Copy, LogIn, Edit } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EditNicknameDialog } from '@/components/clubs/EditNicknameDialog';
+import { EditClubDialog } from '@/components/clubs/EditClubDialog';
 import { ClubChat } from '@/components/clubs/ClubChat';
-import { ClubFeed } from '@/components/clubs/ClubFeed';
 
 export default function ClubDetails() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const inviteCode = searchParams.get('invite');
   const [club, setClub] = useState<Club | null>(null);
   const [members, setMembers] = useState<ClubMemberWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [isEditingClub, setIsEditingClub] = useState(false);
+  const [joining, setJoining] = useState(false);
   const { user } = useAuth();
   const currentUserMember = members.find(m => m.user_id === user?.id);
   const navigate = useNavigate();
@@ -45,11 +49,6 @@ export default function ClubDetails() {
       setClub(clubData as Club);
 
       // Fetch members with profiles
-      // We need to join club_members with profiles. 
-      // Assuming there is a foreign key from club_members.user_id to profiles.id or similar, 
-      // or we might need to fetch manually if the relation isn't direct in the query builder.
-      // Let's try to fetch club_members and then fetch profiles for those users.
-      
       const { data: membersData, error: membersError } = await supabase
         .from('club_members')
         .select('*')
@@ -68,7 +67,6 @@ export default function ClubDetails() {
 
         // Combine data
         const combinedMembers = membersData.map(member => {
-          // Fix: Match profile by user_id, not id (since profile.id might differ from user.id)
           const profile = profilesData?.find(p => p.user_id === member.user_id);
           return {
             ...member,
@@ -106,6 +104,58 @@ export default function ClubDetails() {
     fetchClubDetails();
   }, [fetchClubDetails]);
 
+  const handleJoinClub = async () => {
+    if (!user || !club) return;
+    
+    // Check invite code if private
+    if (!club.is_public && (!inviteCode || inviteCode !== club.invite_code)) {
+      toast({
+        title: 'Clube Privado',
+        description: 'Você precisa de um link de convite válido para entrar neste clube.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setJoining(true);
+    try {
+      const { error } = await supabase
+        .from('club_members')
+        .insert({
+          club_id: club.id,
+          user_id: user.id,
+          role: 'member',
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Bem-vindo ao clube!',
+        description: `Você agora faz parte do ${club.name}.`,
+      });
+      fetchClubDetails();
+    } catch (error) {
+      console.error('Error joining club:', error);
+      toast({
+        title: 'Erro ao entrar no clube',
+        description: 'Tente novamente mais tarde.',
+        variant: 'destructive',
+      });
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const copyInviteLink = () => {
+    if (!club?.invite_code) return;
+    const link = `${window.location.origin}/clubs/${club.id}?invite=${club.invite_code}`;
+    navigator.clipboard.writeText(link);
+    toast({
+      title: 'Link copiado!',
+      description: 'Link de convite copiado para a área de transferência.',
+    });
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -117,6 +167,9 @@ export default function ClubDetails() {
   }
 
   if (!club) return null;
+
+  const canJoin = !currentUserMember && (club.is_public || (inviteCode && inviteCode === club.invite_code));
+  const isOwner = currentUserMember?.role === 'owner';
 
   return (
     <Layout>
@@ -141,16 +194,58 @@ export default function ClubDetails() {
               />
             )}
             <div className="absolute inset-0 bg-black/40" />
-            <div className="absolute bottom-0 left-0 p-6 text-white">
-              <h1 className="text-3xl font-bold mb-2">{club.name}</h1>
-              <div className="flex items-center gap-4 text-sm opacity-90">
-                <span className="flex items-center gap-1">
-                  <Users className="w-4 h-4" />
-                  {members.length} membros
-                </span>
-                <Badge variant={club.is_public ? 'secondary' : 'outline'} className="bg-white/20 hover:bg-white/30 text-white border-none">
-                  {club.is_public ? 'Público' : 'Privado'}
-                </Badge>
+            <div className="absolute bottom-0 left-0 right-0 p-6 text-white flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">{club.name}</h1>
+                <div className="flex items-center gap-4 text-sm opacity-90">
+                  <span className="flex items-center gap-1">
+                    <Users className="w-4 h-4" />
+                    {members.length} membros
+                  </span>
+                  <Badge variant={club.is_public ? 'secondary' : 'outline'} className="bg-white/20 hover:bg-white/30 text-white border-none">
+                    {club.is_public ? 'Público' : 'Privado'}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {isOwner && (
+                  <>
+                    <Button 
+                      onClick={() => setIsEditingClub(true)} 
+                      variant="secondary"
+                      size="sm"
+                      className="gap-2 bg-white/20 hover:bg-white/30 text-white border-none backdrop-blur-sm"
+                    >
+                      <Edit className="w-4 h-4" />
+                      <span className="hidden sm:inline">Editar</span>
+                    </Button>
+                    <Button 
+                      onClick={copyInviteLink} 
+                      variant="secondary"
+                      size="sm"
+                      className="gap-2 bg-white/20 hover:bg-white/30 text-white border-none backdrop-blur-sm"
+                    >
+                      <Copy className="w-4 h-4" />
+                      <span className="hidden sm:inline">Copiar Convite</span>
+                    </Button>
+                  </>
+                )}
+                
+                {canJoin && (
+                  <Button 
+                    onClick={handleJoinClub} 
+                    disabled={joining}
+                    className="gap-2 shadow-lg"
+                  >
+                    {joining ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <LogIn className="w-4 h-4" />
+                    )}
+                    Entrar no Clube
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -159,11 +254,10 @@ export default function ClubDetails() {
           </div>
         </div>
 
-        {/* Tabs for Overview, Feed, Chat */}
+        {/* Tabs for Overview, Chat */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-[400px]">
+          <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-            <TabsTrigger value="feed">Feed</TabsTrigger>
             <TabsTrigger value="chat">Chat</TabsTrigger>
           </TabsList>
 
@@ -263,16 +357,7 @@ export default function ClubDetails() {
                           )}
                         </div>
                         
-                        <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1" title="Livros lidos">
-                            <BookOpen className="w-4 h-4" />
-                            <span>{member.profile.total_books_read || 0} livros</span>
-                          </div>
-                          <div className="flex items-center gap-1" title="Nível de Leitor">
-                            <Trophy className="w-4 h-4" />
-                            <span className="capitalize">{member.profile.reader_level?.replace('_', ' ') || 'Iniciante'}</span>
-                          </div>
-                        </div>
+
                       </div>
                     );
                   })}
@@ -281,15 +366,20 @@ export default function ClubDetails() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="feed">
-            <ClubFeed clubId={club.id} />
-          </TabsContent>
-
           <TabsContent value="chat">
             <ClubChat clubId={club.id} members={members} />
           </TabsContent>
         </Tabs>
       </div>
+
+      {isOwner && club && (
+        <EditClubDialog
+          club={club}
+          open={isEditingClub}
+          onOpenChange={setIsEditingClub}
+          onClubUpdated={fetchClubDetails}
+        />
+      )}
 
       {currentUserMember && (
         <EditNicknameDialog

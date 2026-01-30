@@ -80,23 +80,50 @@ export function ReadingSessionProvider({ children }: { children: ReactNode }): J
       let lastBrokenStreak = profile?.last_broken_streak || 0;
       let consecutiveRecoveries = profile?.consecutive_recoveries || 0;
       
-      const today = new Date().toISOString().split('T')[0];
+      // Use local date to avoid timezone issues
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      
       const lastReading = profile?.last_reading_date;
       
-      // Only update streak logic if session is at least 10 minutes
-      if (durationMinutes >= 10) {
+      // Calculate total reading time for today to support cumulative sessions
+      // Start of today in UTC (since database stores timestamps in UTC)
+      // We need to be careful with timezones. Best approach is to query sessions started today in local time concept
+      // But for simplicity and robustness with Supabase, let's get sessions from the last 24h and filter in JS or 
+      // rely on the fact that if we just read now, we are active.
+      
+      // Better approach: Query all sessions from today
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+
+      const { data: todaySessions } = await supabase
+        .from('reading_sessions')
+        .select('duration_minutes')
+        .eq('user_id', user.id)
+        .gte('started_at', startOfDay)
+        .lt('started_at', endOfDay)
+        .neq('id', session.id);
+        
+      const totalMinutesToday = (todaySessions?.reduce((acc, curr) => acc + curr.duration_minutes, 0) || 0) + durationMinutes;
+
+      // Only update streak logic if TOTAL daily reading is at least 10 minutes
+      let updatedLastReadingDate = lastReading;
+      
+      if (totalMinutesToday >= 10) {
+        updatedLastReadingDate = today;
+        
         if (lastReading !== today) {
-           const yesterday = new Date();
-           yesterday.setDate(yesterday.getDate() - 1);
-           const yesterdayStr = yesterday.toISOString().split('T')[0];
+           const yesterdayDate = new Date();
+           yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+           const yesterdayStr = `${yesterdayDate.getFullYear()}-${String(yesterdayDate.getMonth() + 1).padStart(2, '0')}-${String(yesterdayDate.getDate()).padStart(2, '0')}`;
            
            if (lastReading === yesterdayStr) {
              // Consecutive day
              streakDays += 1;
              // Reset consecutive recoveries on normal extension
              consecutiveRecoveries = 0;
-           } else {
-             // Streak broken
+           } else if (lastReading !== today) { // Avoid resetting if we already processed today but just added more minutes
+             // Streak broken or new streak (only if we haven't already counted today)
              if (streakDays > 0) {
                lastBrokenStreak = streakDays;
              }
@@ -109,16 +136,29 @@ export function ReadingSessionProvider({ children }: { children: ReactNode }): J
       const newTotalPages = (profile?.total_pages_read || 0) + pagesRead;
       const newTotalTime = (profile?.total_reading_time || 0) + durationMinutes;
       
-      await updateProfile({
+      const updateData: any = {
         is_reading_now: false,
         current_book_id: null,
         total_pages_read: newTotalPages,
         total_reading_time: newTotalTime,
-        last_reading_date: durationMinutes >= 10 ? today : (lastReading || null),
-        streak_days: streakDays,
-        last_broken_streak: lastBrokenStreak,
-        consecutive_recoveries: consecutiveRecoveries
-      });
+        last_reading_date: updatedLastReadingDate,
+        streak_days: streakDays
+      };
+
+      // Only include recovery fields if they exist in the profile type to avoid 400 errors
+      // until the database schema is updated
+      if ('last_broken_streak' in (profile || {})) {
+        updateData.last_broken_streak = lastBrokenStreak;
+      }
+      if ('consecutive_recoveries' in (profile || {})) {
+        updateData.consecutive_recoveries = consecutiveRecoveries;
+      }
+
+      const { error: updateError } = await updateProfile(updateData);
+      
+      if (updateError) {
+        console.error('Error updating profile stats:', updateError);
+      }
 
       // Create a post about the session
       await supabase

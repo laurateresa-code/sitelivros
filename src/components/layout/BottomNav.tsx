@@ -8,7 +8,7 @@ export function BottomNav() {
   const isActive = (path: string) => location.pathname === path;
 
   const navItems = [
-    { path: '/', icon: Home, label: 'Feed' },
+    { path: '/', icon: Home, label: 'Início' },
     { path: '/search', icon: Search, label: 'Buscar' },
     { path: '/rankings', icon: Trophy, label: 'Rankings' },
     { path: '/clubs', icon: Users, label: 'Clubes' },

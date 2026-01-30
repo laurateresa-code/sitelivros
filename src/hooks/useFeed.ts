@@ -157,7 +157,13 @@ export function useFeed(clubId?: string) {
             comments_count: 0
           };
 
-          setPosts(prev => [formattedPost, ...prev]);
+          setPosts(prev => {
+            // Check if post already exists to avoid duplicates from optimistic updates or race conditions
+            if (prev.some(p => p.id === formattedPost.id)) {
+              return prev;
+            }
+            return [formattedPost, ...prev];
+          });
         }
       )
       .on(

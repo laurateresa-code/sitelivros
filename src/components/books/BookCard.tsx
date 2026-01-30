@@ -17,6 +17,7 @@ interface BookCardProps {
   userBook?: UserBook;
   onAddToList?: (status: 'reading' | 'read' | 'want_to_read') => void;
   showAddButton?: boolean;
+  onClick?: (book: Book) => void;
 }
 
 export function BookCard({
@@ -24,6 +25,7 @@ export function BookCard({
   userBook,
   onAddToList,
   showAddButton = true,
+  onClick,
 }: BookCardProps) {
   const getStatusBadge = () => {
     if (!userBook) return null;
@@ -64,21 +66,45 @@ export function BookCard({
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <div className="absolute bottom-4 left-4 right-4">
-            <Link to={`/book/${book.id}`}>
-              <Button className="w-full gradient-primary text-white">
+            {onClick ? (
+              <Button 
+                className="w-full gradient-primary text-white"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onClick(book);
+                }}
+              >
                 Ver Detalhes
               </Button>
-            </Link>
+            ) : (
+              <Link to={`/book/${book.id}`}>
+                <Button className="w-full gradient-primary text-white">
+                  Ver Detalhes
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>
 
       <CardContent className="p-4">
-        <Link to={`/book/${book.id}`}>
-          <h3 className="font-semibold line-clamp-2 hover:text-primary transition-colors">
+        {onClick ? (
+          <h3 
+            className="font-semibold line-clamp-2 hover:text-primary transition-colors cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              onClick(book);
+            }}
+          >
             {book.title}
           </h3>
-        </Link>
+        ) : (
+          <Link to={`/book/${book.id}`}>
+            <h3 className="font-semibold line-clamp-2 hover:text-primary transition-colors">
+              {book.title}
+            </h3>
+          </Link>
+        )}
         <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
           {book.author || 'Autor desconhecido'}
         </p>

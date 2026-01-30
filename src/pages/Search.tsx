@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search as SearchIcon, Loader2, BookOpen, TrendingUp, Sparkles, Heart, Brain, Rocket, Filter, Zap, Eye, Flag, type LucideIcon } from 'lucide-react';
+import { Search as SearchIcon, Loader2, BookOpen, TrendingUp, Sparkles, Heart, Brain, Rocket, Filter, Zap, Eye, Flag, type LucideIcon, X, Calendar, Book as BookIcon, Check as CheckIcon } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,9 @@ import { GoogleBookResult, Book } from '@/types';
 import { BookCard } from '@/components/books/BookCard';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
+import { StarRating } from '@/components/ui/StarRating';
+import { Badge } from '@/components/ui/badge';
 
 const BrazilFlagIcon = ({ className, ...props }: React.ComponentProps<"svg">) => (
   <svg
@@ -40,6 +43,7 @@ export default function Search() {
   const [showFilters, setShowFilters] = useState(false);
   const [authorFilter, setAuthorFilter] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('all');
+  const [selectedBook, setSelectedBook] = useState<{ book: Book, googleBook?: GoogleBookResult } | null>(null);
   
   // Recommendations state
   const [popularBooks, setPopularBooks] = useState<Book[]>([]);
@@ -52,7 +56,7 @@ export default function Search() {
   const [selfHelpBooks, setSelfHelpBooks] = useState<GoogleBookResult[]>([]);
 
   const { searchGoogleBooks, addBookFromGoogle, getPopularBooks } = useBooks();
-  const { addToList } = useUserBooks();
+  const { addToList, books: userBooks, removeBook } = useUserBooks();
   const { user } = useAuth();
   const { toast } = useToast();
   const loadingRef = useRef(false);
@@ -199,8 +203,26 @@ export default function Search() {
             if (res && res[0]) {
               // Incremental update for better UX
               item.setter(prev => {
-                // Avoid duplicates based on ID
-                if (prev.some(b => b.id === res[0].id)) return prev;
+                // Avoid duplicates based on ID and Title/Author similarity
+                const isDuplicate = prev.some(b => {
+                  if (b.id === res[0].id) return true;
+                  
+                  // Normalize titles for comparison
+                  const t1 = b.volumeInfo.title.toLowerCase().trim();
+                  const t2 = res[0].volumeInfo.title.toLowerCase().trim();
+                  
+                  // Check if one title contains the other (to catch "Title" vs "Title: Subtitle")
+                  const titlesMatch = t1.includes(t2) || t2.includes(t1);
+                  
+                  // Check authors
+                  const a1 = b.volumeInfo.authors?.join(',').toLowerCase() || '';
+                  const a2 = res[0].volumeInfo.authors?.join(',').toLowerCase() || '';
+                  const authorsMatch = a1 === a2; // Strict author match for now
+                  
+                  return titlesMatch && authorsMatch;
+                });
+
+                if (isDuplicate) return prev;
                 return [...prev, res[0]];
               });
             }
@@ -358,6 +380,10 @@ export default function Search() {
                   <BookCard 
                     book={book} 
                     showAddButton={false}
+                    onClick={() => setSelectedBook({ 
+                      book, 
+                      googleBook: isGoogleBook ? (item as GoogleBookResult) : undefined 
+                    })}
                   />
                   <div className="grid grid-cols-3 gap-1 px-1">
                     <Button 
@@ -483,6 +509,10 @@ export default function Search() {
                   <BookCard
                     book={mapToDisplayBook(result)}
                     showAddButton={false}
+                    onClick={() => setSelectedBook({ 
+                      book: mapToDisplayBook(result), 
+                      googleBook: result 
+                    })}
                   />
                   <div className="grid grid-cols-3 gap-1 mt-2">
                     <Button 
@@ -538,7 +568,7 @@ export default function Search() {
             />
             
             <CategorySection 
-              title="Destaques do BookTok (YA)" 
+              title="Destaques do BookTok" 
               icon={Zap} 
               books={romanceBooks} 
             />
@@ -576,6 +606,165 @@ export default function Search() {
           </div>
         )}
       </div>
+
+      <Dialog open={!!selectedBook} onOpenChange={(open) => !open && setSelectedBook(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
+          <div className="absolute right-4 top-4 z-50">
+            <DialogClose className="rounded-full bg-background/50 p-1 hover:bg-background transition-colors">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Fechar</span>
+            </DialogClose>
+          </div>
+          
+          {selectedBook && (
+            <div className="flex flex-col md:flex-row h-full overflow-hidden">
+              {/* Cover Column */}
+              <div className="w-full md:w-[280px] bg-muted/30 p-6 flex flex-col items-center justify-start gap-6 border-r">
+                <div className="w-[160px] aspect-[2/3] rounded-lg shadow-xl overflow-hidden relative group">
+                  {selectedBook.book.cover_url ? (
+                    <img 
+                      src={selectedBook.book.cover_url} 
+                      alt={selectedBook.book.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-muted flex items-center justify-center">
+                      <BookIcon className="w-12 h-12 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+                
+                <div className="w-full space-y-2">
+                  {(() => {
+                    const userBookEntry = selectedBook.googleBook
+                      ? userBooks.find(ub => ub.book?.google_books_id === selectedBook.googleBook?.id)
+                      : userBooks.find(ub => ub.book_id === selectedBook.book.id);
+
+                    return (
+                      <>
+                        <Button 
+                          className="w-full gap-2 transition-all duration-200" 
+                          variant={userBookEntry?.status === 'want_to_read' ? 'default' : 'outline'}
+                          onClick={() => {
+                            if (userBookEntry?.status === 'want_to_read') {
+                              removeBook(userBookEntry.book_id);
+                              toast({ title: 'Removido da lista Quero Ler' });
+                            } else {
+                              if (selectedBook.googleBook) {
+                                handleAddBook(selectedBook.googleBook, 'want_to_read');
+                              } else {
+                                handleAddBookFromDB(selectedBook.book, 'want_to_read');
+                              }
+                            }
+                          }}
+                        >
+                          <BookIcon className="w-4 h-4" />
+                          Quero Ler
+                        </Button>
+                        <Button 
+                          className="w-full gap-2 transition-all duration-200"
+                          variant={userBookEntry?.status === 'reading' ? 'default' : 'outline'}
+                          onClick={() => {
+                            if (userBookEntry?.status === 'reading') {
+                              removeBook(userBookEntry.book_id);
+                              toast({ title: 'Removido da lista Lendo' });
+                            } else {
+                              if (selectedBook.googleBook) {
+                                handleAddBook(selectedBook.googleBook, 'reading');
+                              } else {
+                                handleAddBookFromDB(selectedBook.book, 'reading');
+                              }
+                            }
+                          }}
+                        >
+                          <BookOpen className="w-4 h-4" />
+                          Estou Lendo
+                        </Button>
+                        <Button 
+                          className="w-full gap-2 transition-all duration-200"
+                          variant={userBookEntry?.status === 'read' ? 'default' : 'outline'}
+                          onClick={() => {
+                            if (userBookEntry?.status === 'read') {
+                              removeBook(userBookEntry.book_id);
+                              toast({ title: 'Removido da lista Lido' });
+                            } else {
+                              if (selectedBook.googleBook) {
+                                handleAddBook(selectedBook.googleBook, 'read');
+                              } else {
+                                handleAddBookFromDB(selectedBook.book, 'read');
+                              }
+                            }
+                          }}
+                        >
+                          <CheckIcon className="w-4 h-4" />
+                          Já Li
+                        </Button>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Details Column */}
+              <div className="flex-1 flex flex-col h-full min-h-0">
+                <div className="p-6 md:p-8 space-y-6 overflow-y-auto">
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-bold font-display leading-tight">{selectedBook.book.title}</h2>
+                    <p className="text-lg text-muted-foreground">{selectedBook.book.author}</p>
+                    
+                    <div className="flex items-center gap-4 pt-2">
+                      {selectedBook.book.average_rating > 0 && (
+                        <div className="flex items-center gap-2">
+                          <StarRating rating={Math.round(selectedBook.book.average_rating)} readonly size="sm" />
+                          <span className="text-sm text-muted-foreground">
+                            ({selectedBook.book.total_ratings} avaliações)
+                          </span>
+                        </div>
+                      )}
+                      {selectedBook.book.page_count && (
+                        <Badge variant="secondary" className="gap-1">
+                          <BookOpen className="w-3 h-3" />
+                          {selectedBook.book.page_count} páginas
+                        </Badge>
+                      )}
+                      {selectedBook.book.published_date && (
+                        <Badge variant="outline" className="gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {selectedBook.book.published_date.substring(0, 4)}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      Sinopse
+                    </h3>
+                    <p className="text-muted-foreground leading-relaxed text-sm md:text-base">
+                      {selectedBook.book.description || 'Nenhuma descrição disponível.'}
+                    </p>
+                  </div>
+                  
+                  {selectedBook.book.categories && (
+                    <div className="space-y-2 pt-4 border-t">
+                      <h3 className="text-sm font-medium text-muted-foreground">Categorias</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedBook.book.categories.map((cat, i) => (
+                          <Badge key={i} variant="secondary">{cat}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
     </Layout>
   );
 }
+
+

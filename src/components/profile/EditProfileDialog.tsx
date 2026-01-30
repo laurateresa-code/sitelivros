@@ -35,7 +35,7 @@ const profileSchema = z.object({
   display_name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(50, 'Nome muito longo'),
   bio: z.string().max(160, 'Bio deve ter no máximo 160 caracteres').optional(),
   avatar_url: z.string().url('URL inválida').optional().or(z.literal('')),
-  // banner_url removido temporariamente para evitar erro de banco de dados
+  banner_url: z.string().url('URL inválida').optional().or(z.literal('')),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -144,7 +144,8 @@ export function EditProfileDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0 space-y-4">
+            <div className="flex-1 overflow-y-auto px-1 space-y-4">
             <FormField
               control={form.control}
               name="username"
@@ -216,7 +217,6 @@ export function EditProfileDialog({
               )}
             />
 
-            {/* Campo de banner removido temporariamente
             <FormField
               control={form.control}
               name="banner_url"
@@ -232,9 +232,9 @@ export function EditProfileDialog({
                 </FormItem>
               )}
             />
-            */}
+            </div>
 
-            <DialogFooter>
+            <DialogFooter className="mt-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>

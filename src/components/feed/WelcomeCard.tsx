@@ -1,9 +1,15 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, Users } from 'lucide-react';
 
 export function WelcomeCard() {
+  const [message] = useState({
+    title: 'Bem-vindo ao Litera! 📚✨',
+    content: 'Estamos muito felizes em ter você aqui. Explore novas leituras, compartilhe seu progresso e conecte-se com outros leitores apaixonados.'
+  });
+
   return (
     <Card className="animate-fade-in overflow-hidden border-primary/20 bg-primary/5">
       <CardHeader className="pb-3">
@@ -34,24 +40,32 @@ export function WelcomeCard() {
           </span>
         </div>
       </CardHeader>
-
-      <CardContent className="pb-4">
-        <div className="space-y-4">
-          <p className="text-sm leading-relaxed">
-            Bem-vindo ao Litera! 📚✨
-            <br />
-            Estamos muito felizes em ter você aqui. Explore novas leituras, compartilhe seu progresso e conecte-se com outros leitores apaixonados.
+      <CardContent>
+        <div className="space-y-2">
+          <h3 className="font-medium text-lg text-primary">
+            {message.title}
+          </h3>
+          <p className="text-muted-foreground leading-relaxed">
+            {message.content}
           </p>
-          
-          <div className="flex gap-4 p-3 bg-background/50 rounded-lg border border-primary/10">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-full">
-                <Users className="w-5 h-5 text-primary" />
+        </div>
+        
+        <div className="mt-6 pt-4 border-t border-border/50 flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            <span>Comunidade Ativa</span>
+          </div>
+          <div className="flex -space-x-2">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="w-6 h-6 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px]"
+              >
+                📚
               </div>
-              <div>
-                <h4 className="font-semibold text-sm">Comunidades</h4>
-                <p className="text-xs text-muted-foreground">Participe de clubes do livro e discussões!</p>
-              </div>
+            ))}
+            <div className="w-6 h-6 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-medium">
+              +1k
             </div>
           </div>
         </div>

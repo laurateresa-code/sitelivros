@@ -136,6 +136,7 @@ export interface Club {
   cover_url: string | null;
   owner_id: string;
   current_book_id: string | null;
+  invite_code?: string;
   member_count: number;
   is_public: boolean;
   created_at: string;
@@ -160,9 +161,9 @@ export interface Badge {
   id: string;
   name: string;
   description: string | null;
-  icon: string;
-  requirement_type: string;
-  requirement_value: number;
+  image_url: string | null;
+  icon_name: string | null;
+  category: string;
   created_at: string;
 }
 
@@ -170,8 +171,9 @@ export interface UserBadge {
   id: string;
   user_id: string;
   badge_id: string;
-  earned_at: string;
+  awarded_at: string;
   badge?: Badge;
+  metadata?: Record<string, any>;
 }
 
 export interface Notification {
@@ -183,6 +185,36 @@ export interface Notification {
   read: boolean;
   created_at: string;
   actor?: Profile;
+}
+
+export interface Challenge {
+  id: string;
+  title: string;
+  description: string | null;
+  start_date: string;
+  end_date: string;
+  type: 'monthly' | 'special';
+  created_at: string;
+}
+
+export interface ChallengeSuggestion {
+  id: string;
+  challenge_id: string;
+  title: string;
+  author: string | null;
+  created_at: string;
+}
+
+export interface UserChallenge {
+  id: string;
+  user_id: string;
+  challenge_id: string;
+  status: 'accepted' | 'completed' | 'failed';
+  progress: number;
+  accepted_at: string;
+  completed_at: string | null;
+  challenge?: Challenge;
+  book_id?: string | null;
 }
 
 export interface GoogleBookResult {

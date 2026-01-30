@@ -90,6 +90,9 @@ export function useComments(postId: string, postAuthorId?: string) {
 
       if (error) throw error;
 
+      // Refresh comments immediately to ensure UI updates even if realtime is slow/disabled
+      await fetchComments();
+
       // Notifications
       if (parentId) {
         // Reply notification

@@ -37,8 +37,11 @@ export function useNotifications() {
 
         setNotifications(formattedNotifications);
         setUnreadCount(formattedNotifications.filter(n => !n.read).length);
-      } catch (error) {
-        console.error('Error fetching notifications:', error);
+      } catch (error: any) {
+        // Ignore missing table error to avoid console noise
+        if (error?.code !== 'PGRST205') {
+          console.error('Error fetching notifications:', error);
+        }
       } finally {
         setLoading(false);
       }
