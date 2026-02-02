@@ -147,11 +147,48 @@ CREATE TABLE IF NOT EXISTS public.user_badges (
 ALTER TABLE public.badges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_badges ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Badges viewable by everyone" ON public.badges FOR SELECT USING (true);
-CREATE POLICY "User badges viewable by everyone" ON public.user_badges FOR SELECT USING (true);
-CREATE POLICY "Users can insert own badges" ON public.user_badges FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'badges' AND policyname = 'Badges viewable by everyone') THEN
+        CREATE POLICY "Badges viewable by everyone" ON public.badges FOR SELECT USING (true);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_badges' AND policyname = 'User badges viewable by everyone') THEN
+        CREATE POLICY "User badges viewable by everyone" ON public.user_badges FOR SELECT USING (true);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_badges' AND policyname = 'Users can insert own badges') THEN
+        CREATE POLICY "Users can insert own badges" ON public.user_badges FOR INSERT WITH CHECK (auth.uid() = user_id);
+    END IF;
+END $$;
 
 -- Seed initial badge for the current challenge
 INSERT INTO public.badges (name, description, icon_name, category)
 SELECT 'Leitor de Clássicos', 'Completou o desafio de ler um clássico da literatura.', 'BookOpen', 'challenge'
 WHERE NOT EXISTS (SELECT 1 FROM public.badges WHERE name = 'Leitor de Clássicos');
+
+-- 8. Fix Club Messages Delete Policy
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'club_messages') THEN
+        -- Drop existing delete policies if they exist (to avoid conflicts)
+        DROP POLICY IF EXISTS "Users can delete their own club messages" ON public.club_messages;
+        DROP POLICY IF EXISTS "Users can delete messages" ON public.club_messages;
+        
+        -- Create new comprehensive delete policy
+        CREATE POLICY "Users can delete messages" ON public.club_messages
+            FOR DELETE
+            USING (
+                -- User is the author
+                auth.uid() = user_id 
+                OR 
+                -- User is the owner of the club
+                EXISTS (
+                    SELECT 1 FROM public.club_members
+                    WHERE club_members.club_id = public.club_messages.club_id
+                    AND club_members.user_id = auth.uid()
+                    AND club_members.role = 'owner'
+                )
+            );
+    END IF;
+END $$;

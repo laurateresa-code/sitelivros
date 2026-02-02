@@ -3,11 +3,10 @@ import { useUserBooks } from '@/hooks/useUserBooks';
 import { Loader2 } from 'lucide-react';
 import { ReadingNow } from '@/components/books/ReadingNow';
 import { ReadingGoals } from '@/components/dashboard/ReadingGoals';
-import { ReadingChallenge } from '@/components/books/ReadingChallenge';
-import { WantToRead } from '@/components/books/WantToRead';
+import { LibraryBookshelf } from '@/components/profile/LibraryBookshelf';
 
 export default function MyBooks() {
-  const { loading } = useUserBooks();
+  const { books, loading } = useUserBooks();
 
   if (loading) {
     return (
@@ -23,16 +22,18 @@ export default function MyBooks() {
     <Layout>
       <div className="space-y-8 pb-12">
         <div className="grid gap-8 md:grid-cols-[1fr_300px]">
-          <div className="space-y-8">
+          <div className="space-y-8 min-w-0">
+            {/* Widget de Sessão Ativa */}
             <ReadingNow />
           </div>
 
           <div className="space-y-6">
-            <WantToRead />
             <ReadingGoals />
-            <ReadingChallenge />
           </div>
         </div>
+
+        {/* Nova Estante Minimalista - Full Width */}
+        <LibraryBookshelf books={books} isLoading={loading} hideReading={true} />
       </div>
     </Layout>
   );

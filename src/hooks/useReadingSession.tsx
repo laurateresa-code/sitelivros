@@ -1,6 +1,8 @@
 import React, { useState, useCallback, createContext, useContext, ReactNode } from 'react';
 import { supabase } from '../integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { Badge } from '../types';
+import { BadgeAwardedDialog } from '../components/rewards/BadgeAwardedDialog';
 
 interface ActiveSession {
   bookId: string;
@@ -12,15 +14,24 @@ interface ReadingSessionContextType {
   activeSession: ActiveSession | null;
   loading: boolean;
   startSession: (bookId: string, currentPage: number) => Promise<void>;
-  endSession: (endPage: number, notes?: string) => Promise<void>;
+  endSession: (endPage: number, notes?: string) => Promise<{ session: any; newBadge: any | null } | null>;
   cancelSession: () => Promise<void>;
 }
+
+const STREAK_BADGES = {
+  1: 'Bom Começo',
+  3: 'Aquecimento',
+  7: 'Leitor Dedicado',
+  14: 'Leitor Comprometido',
+  30: 'Hábito de Ferro'
+};
 
 const ReadingSessionContext = createContext<ReadingSessionContextType | undefined>(undefined);
 
 export function ReadingSessionProvider({ children }: { children: ReactNode }): JSX.Element {
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [loading, setLoading] = useState(false);
+  const [awardedBadge, setAwardedBadge] = useState<Badge | null>(null);
   const { user, profile, updateProfile } = useAuth();
 
   const startSession = useCallback(async (bookId: string, currentPage: number) => {
@@ -106,6 +117,8 @@ export function ReadingSessionProvider({ children }: { children: ReactNode }): J
         
       const totalMinutesToday = (todaySessions?.reduce((acc, curr) => acc + curr.duration_minutes, 0) || 0) + durationMinutes;
 
+      console.log('Total minutes today:', totalMinutesToday, 'Current streak:', streakDays);
+
       // Only update streak logic if TOTAL daily reading is at least 10 minutes
       let updatedLastReadingDate = lastReading;
       
@@ -160,6 +173,55 @@ export function ReadingSessionProvider({ children }: { children: ReactNode }): J
         console.error('Error updating profile stats:', updateError);
       }
 
+      // Check for streak badges
+      let newBadge = null;
+      // We check if the current streak matches any of our badge thresholds
+      // Note: We use the calculated streakDays which includes today's update
+      console.log('Checking for badges. Streak:', streakDays);
+      if (streakDays > 0 && STREAK_BADGES[streakDays as keyof typeof STREAK_BADGES]) {
+        const badgeName = STREAK_BADGES[streakDays as keyof typeof STREAK_BADGES];
+        console.log('Eligible for badge:', badgeName);
+        
+        try {
+          // Find badge by name
+          const { data: badgeData, error: badgeError } = await supabase
+            .from('badges')
+            .select('*')
+            .eq('name', badgeName)
+            .single();
+            
+          if (badgeError) {
+             console.error('Error fetching badge data:', badgeError);
+          }
+
+          if (badgeData) {
+            // Check if user already has it
+            const { data: existingBadge } = await supabase
+              .from('user_badges')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('badge_id', badgeData.id)
+              .maybeSingle();
+              
+            if (!existingBadge) {
+              // Award badge
+              const { error: awardError } = await supabase
+                .from('user_badges')
+                .insert({
+                  user_id: user.id,
+                  badge_id: badgeData.id
+                });
+                
+              if (!awardError) {
+                newBadge = badgeData;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error checking/awarding badge:', error);
+        }
+      }
+
       // Create a post about the session
       await supabase
         .from('posts')
@@ -172,7 +234,12 @@ export function ReadingSessionProvider({ children }: { children: ReactNode }): J
         });
 
       setActiveSession(null);
-      return session;
+      
+      if (newBadge) {
+        setAwardedBadge(newBadge);
+      }
+      
+      return { session, newBadge };
     } catch (error) {
       console.error('Error ending session:', error);
       return null;
@@ -201,6 +268,11 @@ export function ReadingSessionProvider({ children }: { children: ReactNode }): J
       cancelSession
     }}>
       {children}
+      <BadgeAwardedDialog 
+        open={!!awardedBadge} 
+        onOpenChange={(open) => !open && setAwardedBadge(null)} 
+        badge={awardedBadge} 
+      />
     </ReadingSessionContext.Provider>
   );
 }

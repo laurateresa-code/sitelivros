@@ -15,6 +15,7 @@ import Profile from "./pages/Profile";
 import Rankings from "./pages/Rankings";
 import Clubs from "./pages/Clubs";
 import ClubDetails from "./pages/ClubDetails";
+import ClubChatPage from "./pages/ClubChatPage";
 import PostDetails from "./pages/PostDetails";
 import NotFound from "./pages/NotFound";
 import { WelcomeNotificationDialog } from "@/components/notifications/WelcomeNotificationDialog";
@@ -44,6 +45,7 @@ const App = () => (
               <Route path="/rankings" element={<Rankings />} />
               <Route path="/clubs" element={<Clubs />} />
               <Route path="/clubs/:id" element={<ClubDetails />} />
+              <Route path="/clubs/:id/chat" element={<ClubChatPage />} />
               <Route path="/post/:id" element={<PostDetails />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

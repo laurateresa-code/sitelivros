@@ -61,11 +61,11 @@ export function ReadingNow() {
         <CardContent className="pt-6 space-y-6">
           {readingBooks.map((book) => (
             <div key={book.id} className="relative border-b border-border/50 pb-6 last:border-0 last:pb-0">
-              <div className="flex gap-4">
+              <div className="flex gap-4 group">
                 <div className="flex flex-col items-center flex-shrink-0 w-20">
-                  <div className="w-20 h-28 bg-muted rounded-md overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                  <div className="w-20 h-28 bg-muted rounded-md overflow-hidden shadow-sm transition-all duration-300 group-hover:shadow-xl group-hover:scale-105 group-hover:rotate-1">
                     {book.book?.cover_url ? (
-                      <img src={book.book.cover_url} alt={book.book.title} className="w-full h-full object-cover" />
+                      <img src={book.book.cover_url} alt={book.book.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-muted">
                         <Book className="w-8 h-8 text-muted-foreground" />
@@ -94,7 +94,7 @@ export function ReadingNow() {
                       onClick={() => setSessionBook(book)}
                     >
                       <Play className="w-3 h-3 fill-current" />
-                      Registrar
+                      Continuar
                     </Button>
                     <Link to={`/book/${book.book_id}`} className="flex-1">
                       <Button size="sm" variant="outline" className="w-full h-8">

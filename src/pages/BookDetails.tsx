@@ -96,8 +96,27 @@ export default function BookDetails() {
       toast({ title: 'Erro ao atualizar status', variant: 'destructive' });
     } else {
       toast({ title: 'Status atualizado com sucesso!' });
-      loadBook(); // Refresh book data
+      await loadBook(); // Refresh book data
     }
+  };
+
+  const handleStartReading = async () => {
+    if (!book || !user) return;
+
+    // Se o livro não estiver como "lendo", atualiza o status primeiro
+    if (userBook?.status !== 'reading') {
+      const { error } = await addToList(book, 'reading');
+      
+      if (error) {
+        toast({ title: 'Erro ao iniciar leitura', variant: 'destructive' });
+        return;
+      }
+      
+      // Recarrega os dados para garantir que temos o userBook atualizado
+      await loadBook();
+    }
+    
+    setIsReadingSessionOpen(true);
   };
 
   const handleRating = async (rating: number) => {
@@ -177,21 +196,27 @@ export default function BookDetails() {
               </Button>
             </div>
 
-            {userBook?.status === 'reading' && (
-               <>
+            {/* Botão de Iniciar Leitura Principal */}
+            {(!userBook || userBook.status === 'reading' || userBook.status === 'want_to_read') && (
+               <div className="mt-4">
                  <Button 
-                   className="w-full mt-2" 
-                   onClick={() => setIsReadingSessionOpen(true)}
+                   className="w-full gradient-primary text-white shadow-lg hover:shadow-xl transition-all duration-300" 
+                   size="lg"
+                   onClick={handleStartReading}
                  >
-                   <Play className="w-4 h-4 mr-2" />
-                   Registrar Sessão
+                   <Play className="w-5 h-5 mr-2 fill-current" />
+                   Iniciar Leitura
                  </Button>
-                 <ReadingSessionModal 
-                   open={isReadingSessionOpen}
-                   onOpenChange={setIsReadingSessionOpen}
-                   userBook={userBook}
-                 />
-               </>
+               </div>
+            )}
+
+            {/* Modal de Sessão de Leitura */}
+            {userBook && (
+               <ReadingSessionModal 
+                 open={isReadingSessionOpen}
+                 onOpenChange={setIsReadingSessionOpen}
+                 userBook={userBook}
+               />
             )}
           </div>
 

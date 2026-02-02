@@ -55,10 +55,10 @@ export function BookSearch({ onSelect, className = '' }: BookSearchProps) {
             {results.map((book) => (
               <div
                 key={book.id}
-                className="flex gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors"
+                className="flex gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer transition-all duration-200 group hover:scale-[1.01]"
                 onClick={() => onSelect(book)}
               >
-                <div className="h-16 w-12 bg-muted rounded overflow-hidden flex-shrink-0">
+                <div className="h-16 w-12 bg-muted rounded overflow-hidden flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-1">
                   {book.volumeInfo.imageLinks?.thumbnail ? (
                     <img
                       src={book.volumeInfo.imageLinks.thumbnail.replace('http:', 'https:')}

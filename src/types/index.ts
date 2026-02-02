@@ -202,6 +202,7 @@ export interface ChallengeSuggestion {
   challenge_id: string;
   title: string;
   author: string | null;
+  genero_literario?: string;
   created_at: string;
 }
 

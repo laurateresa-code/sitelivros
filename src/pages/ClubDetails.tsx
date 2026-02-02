@@ -7,14 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ArrowLeft, Users, BookOpen, Share2, Copy, LogIn, Edit } from 'lucide-react';
+import { Loader2, ArrowLeft, Users, BookOpen, Share2, Copy, LogIn, Edit, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EditNicknameDialog } from '@/components/clubs/EditNicknameDialog';
 import { EditClubDialog } from '@/components/clubs/EditClubDialog';
-import { ClubChat } from '@/components/clubs/ClubChat';
 
 export default function ClubDetails() {
   const { id } = useParams<{ id: string }>();
@@ -231,6 +229,18 @@ export default function ClubDetails() {
                     </Button>
                   </>
                 )}
+
+                {currentUserMember && (
+                  <Button 
+                    onClick={() => navigate(`/clubs/${club.id}/chat`)} 
+                    variant="secondary"
+                    size="sm"
+                    className="gap-2 bg-white/20 hover:bg-white/30 text-white border-none backdrop-blur-sm"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span className="hidden sm:inline">Chat</span>
+                  </Button>
+                )}
                 
                 {canJoin && (
                   <Button 
@@ -254,14 +264,7 @@ export default function ClubDetails() {
           </div>
         </div>
 
-        {/* Tabs for Overview, Chat */}
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
-            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-            <TabsTrigger value="chat">Chat</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview">
+        <div className="space-y-6">
             {/* Current Book Section */}
             {club.current_book && (
               <Card className="mb-6">
@@ -364,12 +367,7 @@ export default function ClubDetails() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="chat">
-            <ClubChat clubId={club.id} members={members} />
-          </TabsContent>
-        </Tabs>
+        </div>
       </div>
 
       {isOwner && club && (
