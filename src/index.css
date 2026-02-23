@@ -1,0 +1,201 @@
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* BookLive Design System - Fantasy Book Aesthetic */
+
+@layer base {
+  :root {
+    /* Background: Soft Dreamy Cloud */
+    --background: 240 20% 98%;
+    /* Foreground: Deep Ink Blue */
+    --foreground: 222 47% 11%;
+
+    /* Card: Pure White with Soft Tint */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Primary - Pastel Sky Blue */
+    --primary: 210 80% 75%;
+    --primary-foreground: 222 47% 11%;
+
+    /* Secondary - Pastel Rose */
+    --secondary: 330 80% 80%;
+    --secondary-foreground: 222 47% 11%;
+
+    /* Muted - Soft Lavender Grey */
+    --muted: 240 20% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    /* Accent - Magical Lavender */
+    --accent: 260 80% 85%;
+    --accent-foreground: 222 47% 11%;
+
+    /* Success - Soft Mint */
+    --success: 140 60% 80%;
+    --success-foreground: 145 80% 10%;
+
+    /* Warning - Soft Peach */
+    --warning: 30 90% 85%;
+    --warning-foreground: 30 80% 10%;
+
+    /* Destructive - Soft Coral */
+    --destructive: 0 70% 85%;
+    --destructive-foreground: 0 80% 10%;
+
+    --border: 240 20% 90%;
+    --input: 240 20% 90%;
+    --ring: 210 80% 75%;
+
+    /* Softer radius for a bubbly/cloud feel */
+    --radius: 1.5rem;
+
+    /* Gradient colors - Cotton Candy / Magic */
+    --gradient-start: 210 80% 75%; /* Sky Blue */
+    --gradient-mid: 260 80% 85%;   /* Lavender */
+    --gradient-end: 330 80% 80%;   /* Rose */
+
+    /* Reading status - Glowing Green */
+    --reading-active: 140 60% 70%;
+    --reading-pulse: 140 60% 85%;
+
+    /* Sidebar */
+    --sidebar-background: 240 20% 99%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 210 80% 75%;
+    --sidebar-primary-foreground: 222 47% 11%;
+    --sidebar-accent: 260 80% 95%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 240 20% 92%;
+    --sidebar-ring: 210 80% 75%;
+
+    /* Star ratings - Gold */
+    --star-filled: 45 90% 60%;
+    --star-empty: 240 20% 90%;
+  }
+
+  .dark {
+    /* Background: Deep Night Sky */
+    --background: 222 47% 11%;
+    /* Foreground: Starlight White */
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 13%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 13%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Primary - Moonlight Blue */
+    --primary: 210 70% 60%;
+    --primary-foreground: 222 47% 11%;
+
+    /* Secondary - Deep Rose */
+    --secondary: 330 60% 65%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 260 50% 55%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 212 70% 50%;
+    
+    /* Dark mode gradients */
+    --gradient-start: 210 70% 40%;
+    --gradient-mid: 260 50% 45%;
+    --gradient-end: 330 60% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased selection:bg-primary/20;
+  }
+  
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-primary/30 rounded-full hover:bg-primary/50 transition-colors;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Playfair Display', serif;
+  }
+  
+  .glass-effect {
+    @apply bg-background/60 backdrop-blur-xl border-b border-white/20 shadow-sm supports-[backdrop-filter]:bg-background/60;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-primary/20;
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[hsl(var(--gradient-start))] via-[hsl(var(--gradient-mid))] to-[hsl(var(--gradient-end))];
+  }
+
+  .gradient-primary {
+    @apply bg-gradient-to-r from-[hsl(var(--gradient-start))] via-[hsl(var(--gradient-mid))] to-[hsl(var(--gradient-end))];
+  }
+
+  .reading-pulse {
+    animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  /* Fantasy Animations */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(to right, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+}
